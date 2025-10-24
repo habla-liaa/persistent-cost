@@ -68,12 +68,13 @@ def build_ordered_boundary_matrix(
 
     return D.tocsr(), simplices_info
 
+
 def matrix_size_from_condensed(dX):
     n = len(dX)
     return int(0.5 * (np.sqrt(8 * n + 1) - 1) + 1)
 
 
-def lipschitz_constant(dX,dY,f):
+def lipschitz_constant(dX, dY, f):
 
     f = np.array(f)
     n = len(f)
@@ -81,10 +82,33 @@ def lipschitz_constant(dX,dY,f):
     # dY_ff = d(f(x_i),f(x_j)) para todo i,j
     i, j = np.triu_indices(n, k=1)
     f_i, f_j = f[i], f[j]
-    
-    # f_pos = to_condensed_form(f_i, f_j, m) # TODO: optimize
-    # dY_ff = dY[f_pos.astype(int)]
-    
+
     dY_ff = squareform(dY)[f_i, f_j]
 
     return float(np.max(dY_ff / dX))
+
+def matrix_size_from_condensed(dX):
+    n = len(dX)
+    return int(0.5 * (np.sqrt(8 * n + 1) - 1) + 1)
+
+def match_simplices(f, simplices_info_X, simplices_info_Y):
+    """
+    Devuelve una lista 'correspondencia' tal que
+    correspondencia[i] = j si el símplex i de X va al símplex j de Y vía f
+    """
+    # Crear un diccionario para lookup en Y
+    lookup_Y = {tuple(s["vertices"]): s["idx"] for s in simplices_info_Y}
+
+    correspondencia = []
+    for s in simplices_info_X:
+        vtx_f = tuple(set(f[v] for v in s["vertices"]))
+        idx_y = lookup_Y.get(vtx_f, -1)  # -1 si no existe
+        correspondencia.append(idx_y)
+
+    return np.array(correspondencia)
+
+def general_position_distance_matrix(X, perturb=1e-7):
+    n = len(X)
+    Xperturbation = perturb * np.random.rand((n * (n - 1) // 2))
+    dX = pdist(X) + Xperturbation
+    return dX
