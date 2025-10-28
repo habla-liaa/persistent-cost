@@ -112,3 +112,4 @@ def general_position_distance_matrix(X, perturb=1e-7):
     Xperturbation = perturb * np.random.rand((n * (n - 1) // 2))
     dX = pdist(X) + Xperturbation
     return dX
+
