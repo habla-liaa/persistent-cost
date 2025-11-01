@@ -95,7 +95,7 @@ def match_simplices(f, simplices_info_X, simplices_info_Y):
     """
     Devuelve una lista 'correspondencia' tal que
     correspondencia[i] = j si el símplex i de X va al símplex j de Y vía f
-    """
+    """    
     # Crear un diccionario para lookup en Y
     lookup_Y = {tuple(s["vertices"]): s["idx"] for s in simplices_info_Y}
 

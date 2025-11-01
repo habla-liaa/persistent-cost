@@ -20,7 +20,7 @@ def main():
     # pr.enable()    
     # tic
     tic = time.time()
-    d_ker, d_coker = cylinder_pipeline(X, Y, f, threshold, maxdim, verbose=False)
+    d_ker, d_coker = cylinder_pipeline(X, Y, f, threshold, maxdim, verbose=True)
     toc = time.time()
     print(f"Cylinder persistence computed in {toc - tic:.4f} seconds.")
     # toc

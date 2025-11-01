@@ -61,6 +61,10 @@ def cylinder_pipeline(X, Y, f, threshold, maxdim, verbose=False):
     D_f = Pcyl
     D_g = PX
     f_simpl = match_simplices(f, simplices_X, simplices_cyl)
+
+    if verbose:
+        print("number of -1 in f_simpl:", np.sum(np.array(f_simpl) == -1))
+
     mapping_L = [int(x) for x in f_simpl]
 
     simp_X, eps_X, simplices_X_dim = simplices_to_list(simplices_X, maxdim)
@@ -242,7 +246,7 @@ def step3(R_im, V_im, mapping_L):
 
     return R_ker, V_ker, cycle_columns_Vim
 
-def step4_orig(D_f, V_g, R_g, mapping_L):
+def step4(D_f, V_g, R_g, mapping_L):
     """
     Construye y reduce D_cok reemplazando columnas de D_f con las correspondientes de V_g.
 
@@ -273,8 +277,9 @@ def step4_orig(D_f, V_g, R_g, mapping_L):
     print(len(rows_not_in_L), "rows not in L")
     print(len(index_cycle_columns_f), "cycle columns to process in cokernel step")
 
-    for j_idx, idx_f in enumerate(index_cycle_columns_f):
-        idx_g = cycle_columns[j_idx]  # columna de V_g con el ciclo
+    embed()
+
+    for j_idx, (idx_f, idx_g) in enumerate(zip(index_cycle_columns_f, cycle_columns)):        
 
         # Poner en filas de L la columna correspondiente de V_g
         # Aseguramos que V_g esté en formato compatible (dense o sparse)
@@ -299,7 +304,7 @@ def step4_orig(D_f, V_g, R_g, mapping_L):
     return R_cok, V_cok
 
 
-def step4(D_f, V_g, R_g, mapping_L):
+def step4_fast(D_f, V_g, R_g, mapping_L):
     """
     Construye y reduce D_cok reemplazando columnas de D_f con las correspondientes de V_g.
 
