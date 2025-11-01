@@ -8,7 +8,7 @@ from persistent_cost.utils.utils import (
     match_simplices,
     matrix_size_from_condensed,
 )
-from persistent_cost.utils.algorithms import do_pivot
+from persistent_cost.algorithms import sparse_do_pivot as do_pivot
 
 
 def test_build_ordered_boundary_matrix_2dsquare():

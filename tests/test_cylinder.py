@@ -1,7 +1,7 @@
 import numpy as np
-from persistent_cost.cilinder import cilinder_pipeline
+from persistent_cost.cylinder import cylinder_pipeline
 
-def test_cilinder_pipeline():
+def test_cylinder_pipeline():
     """
     Test the cylinder pipeline with a simple example.
     """
@@ -11,7 +11,7 @@ def test_cilinder_pipeline():
     threshold = 10
     maxdim = 2
 
-    d_ker, d_cok = cilinder_pipeline(X, Y, f, threshold, maxdim)
+    d_ker, d_cok = cylinder_pipeline(X, Y, f, threshold, maxdim)
 
     # Add assertions here to check the output
     # For example, check the number of bars in each dimension
@@ -28,4 +28,4 @@ def test_cilinder_pipeline():
     print("Cokernel diagram:", d_cok)
 
 if __name__ == "__main__":
-    test_cilinder_pipeline()
+    test_cylinder_pipeline()

@@ -1,5 +1,11 @@
 [build-system]
-requires = ["setuptools>=45", "setuptools-scm[toml]>=6.2", "wheel"]
+requires = [
+    "setuptools>=45",
+    "setuptools-scm[toml]>=6.2",
+    "wheel",
+    "Cython>=0.29.36",
+    "numpy>=1.22",
+]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -24,6 +30,11 @@ dependencies = [
 dev = [
     "pytest",
     "pytest-cov",
+    "fire>=0.5",
+]
+accel = [
+    "numba>=0.58",
+    "Cython>=0.29.36",
 ]
 
 [tool.setuptools]
