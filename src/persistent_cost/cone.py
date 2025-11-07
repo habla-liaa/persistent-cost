@@ -21,10 +21,20 @@ def to_condensed_form(i, j, m):
     return m * i + j - ((i + 2) * (i + 1)) // 2.0
 
 
-def general_position_distance_matrix(X, perturbation=1e-7):
+def general_position_distance_matrix_(X, perturbation=1e-7):
     n = len(X)
     Xperturbation = perturbation * np.random.rand((n * (n - 1) // 2))
     dX = pdist(X) + Xperturbation
+    return dX
+
+def general_position_distance_matrix(X, perturbation=1e-7):
+    n = len(X)
+    Xperturbation = perturbation * np.random.rand((n * (n - 1) // 2))
+    # m = min(np.diff(np.sort(pdist(X))))
+    # p = pdist(X)
+    # if m>1:
+    #     p = np.round(p)
+    dX = p + Xperturbation
     return dX
 
 def remove_empty_dims(bars):
@@ -37,7 +47,7 @@ def remove_empty_dims(bars):
     return bars
 
 
-def kercoker_bars_(dgm, dgmX, dgmY, cone_eps, tol=1e-11):
+def kercoker_bars(dgm, dgmX, dgmY, cone_eps, tol=1e-11):
     """
     Find cokernel and kernel bars in the persistence diagram.
     TODO: optimize
@@ -92,7 +102,7 @@ def kercoker_bars_(dgm, dgmX, dgmY, cone_eps, tol=1e-11):
     return coker_dgm, ker_dgm
 
 
-def kercoker_bars(dgm, dgmX, dgmY, cone_eps, tol=1e-11):
+def kercoker_bars_(dgm, dgmX, dgmY, cone_eps, tol=1e-11):
     """
     Find cokernel and kernel bars in the persistence diagram.
     TODO: optimize
@@ -140,7 +150,7 @@ def conematrix_blocks(DX, DY, DY_fy, eps):
     D[n : n + m, 0:n] = DY_fy.T
 
     R = np.inf
-    # R = max(DX.max(), DY_fy.max()) + 1 instead of np.inf
+    # R = max(DX.max(), DY_fy[~np.isinf(DY_fy)].max()) + 1 #instead of np.inf
 
     D[n + m, n : n + m] = R
     D[n : n + m, n + m] = R
@@ -156,13 +166,13 @@ def conematrix(dX, dY, f, cone_eps=0.0):
     m = matrix_size_from_condensed(dY)
     f = np.array(f)
 
+    DY_fy = np.ones((n, m), dtype=float) * np.inf
+
     # dY_fy = d(f(x_i),y_j) para todo i,j
     indices = np.indices((n, m))
     i = indices[0].flatten()
     j = indices[1].flatten()
-    f_i = f[i]
-
-    DY_fy = np.ones((n, m), dtype=float) * np.inf
+    f_i = f[i]    
     
     ijs = [(ii, jj) for ii, jj in zip(i, j) if jj in f_i]
     i, j = zip(*ijs)
@@ -179,7 +189,7 @@ def conematrix(dX, dY, f, cone_eps=0.0):
     return D
 
 
-def cone_pipeline(X, Y, f, maxdim=1, perturbation=1e-7, cone_eps=0.0, tol=1e-11):
+def cone_pipeline(dX, dY, f, maxdim=1, perturbation=1e-7, cone_eps=0.0, tol=1e-11, return_cone_matrix=False):
     """
     TODO: Compute the total persistence diagram using the cone algorithm.
 
@@ -197,9 +207,6 @@ def cone_pipeline(X, Y, f, maxdim=1, perturbation=1e-7, cone_eps=0.0, tol=1e-11)
         Tolerance for numerical comparisons, by default 1e-11
     Returns
     """
-
-    dX = general_position_distance_matrix(X, perturbation=perturbation)
-    dY = general_position_distance_matrix(Y, perturbation=perturbation)
 
     n = matrix_size_from_condensed(dX)
     m = matrix_size_from_condensed(dY)
@@ -224,4 +231,6 @@ def cone_pipeline(X, Y, f, maxdim=1, perturbation=1e-7, cone_eps=0.0, tol=1e-11)
     print("Done.")
 
     dgm_coker, dgm_ker = kercoker_bars(dgm_cone, dgm_X, dgm_Y, cone_eps, tol)
+    if return_cone_matrix:
+        return dgm_coker, dgm_ker, dgm_cone, dgm_X, dgm_Y, D
     return dgm_coker, dgm_ker, dgm_cone, dgm_X, dgm_Y
