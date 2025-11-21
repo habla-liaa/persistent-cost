@@ -109,3 +109,6 @@ Use `--progress=False` to disable progress bars or override any of the other par
 ## References
 
 
+## TODO:
+
+1. que tolere nubes de un solo punto

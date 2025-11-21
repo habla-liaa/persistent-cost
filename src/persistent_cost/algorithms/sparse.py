@@ -1,5 +1,6 @@
 """Baseline sparse pivot implementation and helpers."""
 
+from typing import Tuple, List
 import numpy as np
 from scipy import sparse
 
@@ -14,9 +15,9 @@ def births_and_deaths(
 
     n_cols = reduced.shape[1]
     cpivs = [column_pivot_k(reduced, column) for column in range(n_cols)]
-    births: list[float] = []
-    deaths: list[float] = []
-    dims: list[int] = []
+    births: List[float] = []
+    deaths: List[float] = []
+    dims: List[int] = []
 
     for column in range(n_cols):
         column_slice = matrix[: column + 1, column].tocsc()
@@ -51,10 +52,10 @@ def column_pivot_k(matrix: sparse.spmatrix, column: int) -> int:
     return -1
 
 
-def column_pivots(matrix: sparse.spmatrix) -> list[int]:
+def column_pivots(matrix: sparse.spmatrix) -> List[int]:
     """Return all column pivots for ``matrix``."""
 
-    pivots: list[int] = []
+    pivots: List[int] = []
     csc = matrix.tocsc()
     for start, end in zip(csc.indptr[:-1], csc.indptr[1:]):
         if start == end:
@@ -64,7 +65,7 @@ def column_pivots(matrix: sparse.spmatrix) -> list[int]:
     return pivots
 
 
-def do_pivot(matrix: sparse.spmatrix) -> tuple[sparse.csc_matrix, sparse.csc_matrix]:
+def do_pivot(matrix: sparse.spmatrix) -> Tuple[sparse.csc_matrix, sparse.csc_matrix]:
     """Reduce ``matrix`` modulo two using sparse column operations."""
 
     reduced = matrix.copy().tolil()

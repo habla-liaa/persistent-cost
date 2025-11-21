@@ -1,6 +1,6 @@
 """Sparse accelerated pivot variants that avoid densifying matrices."""
 
-from typing import Iterable, Literal, Sequence
+from typing import Iterable, Literal, Sequence, List, Tuple, Optional
 
 import numpy as np
 from scipy import sparse
@@ -38,14 +38,14 @@ def _ensure_binary_csc(matrix: sparse.spmatrix) -> sparse.csc_matrix:
     return csc
 
 
-def _csc_to_column_arrays(matrix: sparse.csc_matrix) -> list[np.ndarray]:
+def _csc_to_column_arrays(matrix: sparse.csc_matrix) -> List[np.ndarray]:
     indices = matrix.indices
     indptr = matrix.indptr
     n_cols = matrix.shape[1]
     return [np.array(indices[indptr[k] : indptr[k + 1]], dtype=np.int64) for k in range(n_cols)]
 
 
-def _column_arrays_to_csc(columns: Sequence[np.ndarray], shape: tuple[int, int]) -> sparse.csc_matrix:
+def _column_arrays_to_csc(columns: Sequence[np.ndarray], shape: Tuple[int, int]) -> sparse.csc_matrix:
     n_cols = len(columns)
     indptr = np.zeros(n_cols + 1, dtype=np.int64)
     nnz = 0
@@ -65,7 +65,7 @@ def _column_arrays_to_csc(columns: Sequence[np.ndarray], shape: tuple[int, int])
     return sparse.csc_matrix((data, indices, indptr), shape=shape)
 
 
-def _identity_column_arrays(n_cols: int) -> list[np.ndarray]:
+def _identity_column_arrays(n_cols: int) -> List[np.ndarray]:
     return [np.array([idx], dtype=np.int64) for idx in range(n_cols)]
 
 
@@ -145,11 +145,11 @@ def _to_numba_list(arrays: Iterable[np.ndarray]):
     return typed_list
 
 
-def _from_numba_list(typed_list) -> list[np.ndarray]:
+def _from_numba_list(typed_list) -> List[np.ndarray]:
     return [np.array(column, dtype=np.int64) for column in typed_list]
 
 
-def do_pivot_numba(matrix: sparse.spmatrix) -> tuple[sparse.csc_matrix, sparse.csc_matrix]:
+def do_pivot_numba(matrix: sparse.spmatrix) -> Tuple[sparse.csc_matrix, sparse.csc_matrix]:
     if not NUMBA_AVAILABLE:  # pragma: no cover - simple import guard.
         raise RuntimeError(
             "Numba is not installed. Install the optional 'accel' extra or add numba manually."
@@ -172,7 +172,7 @@ def do_pivot_numba(matrix: sparse.spmatrix) -> tuple[sparse.csc_matrix, sparse.c
     return reduced, transform
 
 
-def do_pivot_cython(matrix: sparse.spmatrix) -> tuple[sparse.csc_matrix, sparse.csc_matrix]:
+def do_pivot_cython(matrix: sparse.spmatrix) -> Tuple[sparse.csc_matrix, sparse.csc_matrix]:
     if not CYTHON_AVAILABLE:  # pragma: no cover - simple import guard.
         raise RuntimeError(
             "Cython sparse extension '_pivot_sparse_cython' is not built. Run 'pip install -e .[accel]' or "
@@ -190,7 +190,7 @@ def do_pivot_cython(matrix: sparse.spmatrix) -> tuple[sparse.csc_matrix, sparse.
 
 def do_pivot_fast(
     matrix: sparse.spmatrix, backend: SparseBackendLiteral = "numba"
-) -> tuple[sparse.csc_matrix, sparse.csc_matrix]:
+) -> Tuple[sparse.csc_matrix, sparse.csc_matrix]:
     backend_lc = backend.lower()
     if backend_lc == "numba":
         return do_pivot_numba(matrix)
@@ -199,7 +199,7 @@ def do_pivot_fast(
     raise ValueError(f"Unknown backend '{backend}'. Valid choices: numba, cython")
 
 
-def warm_up_sparse(backends: Iterable[str] | None = None, size: tuple[int, int] = (32, 32)) -> None:
+def warm_up_sparse(backends: Optional[Iterable[str]] = None, size: Tuple[int, int] = (32, 32)) -> None:
     """Trigger JIT compilation for the selected sparse backends using a synthetic matrix."""
     rng = np.random.default_rng(821)
     dense = rng.integers(0, 2, size=size, dtype=np.uint8)

@@ -1,5 +1,6 @@
 """Baseline dense pivot implementation."""
 
+from typing import Tuple, List
 import numpy as np
 from scipy import sparse
 
@@ -15,15 +16,15 @@ def column_pivot_k(matrix: np.ndarray, column: int) -> int:
     return pivot
 
 
-def do_pivot(matrix: sparse.spmatrix) -> tuple[sparse.csc_matrix, sparse.csc_matrix]:
+def do_pivot(matrix: sparse.spmatrix) -> Tuple[sparse.csc_matrix, sparse.csc_matrix]:
     """Compute the boundary matrix reduction using dense arithmetic."""
 
     dense_matrix = np.asarray(matrix.todense())
     reduced = dense_matrix.copy()
     n_cols = reduced.shape[1]
     pivots = [column_pivot_k(dense_matrix, column) for column in range(n_cols)]
-    used_pivots: list[int] = []
-    operations: list[tuple[int, int]] = []
+    used_pivots: List[int] = []
+    operations: List[Tuple[int, int]] = []
 
     for column in range(n_cols):
         pivot = pivots[column]

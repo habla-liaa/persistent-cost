@@ -28,13 +28,7 @@ def simplices_to_list(simplices, maxdim):
     return simp, epsilons, idx2dim
 
 
-def cylinder_pipeline(X, Y, f, threshold, maxdim, verbose=False):
-
-    if verbose:
-        print("Building distance matrices. Shape X:",
-              X.shape, "Shape Y:", Y.shape)
-    dX = pdist(X)
-    dY = pdist(Y)
+def cylinder_pipeline(dX, dY, f, threshold, maxdim, verbose=False):
 
     PX, simplices_X = build_ordered_boundary_matrix(
         distance_matrix=squareform(dX), threshold=threshold, maxdim=maxdim)
@@ -45,8 +39,6 @@ def cylinder_pipeline(X, Y, f, threshold, maxdim, verbose=False):
         print(f"Building cylinder matrix...")
     cilindro = cylindermatrix(dX, dY, f)
 
-    f = np.arange(len(X))  # por cómo armamos la matriz del cilindro,
-    # X corresponde a los primeros elementos
 
     if verbose:
         print("Building cilinder boundary matrices...")

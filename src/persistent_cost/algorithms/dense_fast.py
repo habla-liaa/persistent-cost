@@ -2,7 +2,7 @@
 
 import numpy as np
 from scipy import sparse
-from typing import Literal, Iterable, Tuple
+from typing import Literal, Iterable, Tuple, Optional
 
 BackendLiteral = Literal["numba", "cython"]
 
@@ -83,7 +83,7 @@ if NUMBA_AVAILABLE:
                 used[pivot] = 1
 
 
-def do_pivot_numba(matrix: sparse.spmatrix) -> tuple[sparse.csc_matrix, sparse.csc_matrix]:
+def do_pivot_numba(matrix: sparse.spmatrix) -> Tuple[sparse.csc_matrix, sparse.csc_matrix]:
     """Perform the pivot reduction using the Numba backend."""
 
     if not NUMBA_AVAILABLE:  # pragma: no cover - simple import guard.
@@ -100,7 +100,7 @@ def do_pivot_numba(matrix: sparse.spmatrix) -> tuple[sparse.csc_matrix, sparse.c
     return sparse.csc_matrix(reduced, dtype=np.int8), sparse.csc_matrix(transform, dtype=np.int8)
 
 
-def do_pivot_cython(matrix: sparse.spmatrix) -> tuple[sparse.csc_matrix, sparse.csc_matrix]:
+def do_pivot_cython(matrix: sparse.spmatrix) -> Tuple[sparse.csc_matrix, sparse.csc_matrix]:
     """Perform the pivot reduction using the Cython backend."""
 
     if not CYTHON_AVAILABLE:  # pragma: no cover - simple import guard.
@@ -119,7 +119,7 @@ def do_pivot_cython(matrix: sparse.spmatrix) -> tuple[sparse.csc_matrix, sparse.
 
 def do_pivot_fast(
     matrix: sparse.spmatrix, backend: BackendLiteral = "numba"
-) -> tuple[sparse.csc_matrix, sparse.csc_matrix]:
+) -> Tuple[sparse.csc_matrix, sparse.csc_matrix]:
     """Dispatch to the chosen accelerated backend."""
 
     backend_lc = backend.lower()
@@ -130,7 +130,7 @@ def do_pivot_fast(
     raise ValueError(f"Unknown backend '{backend}'. Valid choices: numba, cython")
 
 
-def warm_up(backends: Iterable[str] | None = None, size: tuple[int, int] = (32, 32)) -> None:
+def warm_up(backends: Optional[Iterable[str]] = None, size: Tuple[int, int] = (32, 32)) -> None:
     """Trigger JIT compilation for the selected backends using a synthetic matrix."""
 
     rng = np.random.default_rng(1234)
