@@ -1,0 +1,30 @@
+REPORTE DE EXPERIMENTO
+============================================================
+
+Experimento: producto
+Tamaño n: 100
+Dimensión: 2
+Constante de Lipschitz: 1.000000
+Timestamp: 2025-11-20T13:36:43.057277
+
+
+CONE
+----------------------------------------
+
+Barras del Kernel:
+
+Barras del Cokernel:
+
+Clasificación de barras del cono:
+Total barras en cono: 0
+Clasificadas como kernel: 0
+Clasificadas como cokernel: 0
+Desapareadas: 0
+
+
+CONE2
+----------------------------------------
+
+Barras del Kernel:
+
+Barras del Cokernel:
