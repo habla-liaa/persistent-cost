@@ -281,16 +281,10 @@ def save_results(results, output_dir='results'):
         json_results = convert_infinity_to_null(results)
         json.dump(json_results, f, indent=2, cls=SafeJSONEncoder)
     
-    # Guardar pickle (para objetos numpy complejos si es necesario)
-    pickle_path = output_path / f"{base_name}.pkl"
-    with open(pickle_path, 'wb') as f:
-        pickle.dump(results, f)
-    
     print(f"\nResultados guardados en:")
     print(f"  - {json_path}")
-    print(f"  - {pickle_path}")
     
-    return json_path, pickle_path
+    return json_path
 
 
 def generate_report(results, output_dir='results'):
