@@ -639,14 +639,6 @@ function drawAllDiagrams(result, method) {
     
     // Esperar a que el DOM esté actualizado
     setTimeout(() => {
-        // Dibujar nubes de puntos
-        if (methodData.X) {
-            drawPointCloud(`${method}-pointcloud-X`, methodData.X);
-        }
-        if (methodData.Y) {
-            drawPointCloud(`${method}-pointcloud-Y`, methodData.Y);
-        }
-        
         // Dibujar diagramas de persistencia con rango global
         drawDiagram(`${method}-X`, methodData.dgm_X, globalRange);
         drawDiagram(`${method}-Y`, methodData.dgm_Y, globalRange);
@@ -681,7 +673,7 @@ function calculateGlobalRange(methodData) {
     return { max: max === 0 ? 1 : max };
 }
 
-function drawPointCloud(divId, points) {
+function drawPointCloud(divId, points, title = '') {
     const div = document.getElementById(divId);
     if (!div || !points || points.length === 0) return;
     
@@ -695,22 +687,25 @@ function drawPointCloud(divId, points) {
             mode: 'markers',
             type: 'scatter',
             marker: {
-                size: 6,
+                size: 8,
                 color: '#3498db',
                 opacity: 0.7
-            }
+            },
+            name: title
         };
         
         const layout = {
-            margin: { l: 40, r: 20, t: 20, b: 40 },
+            title: title ? { text: title, font: { size: 16 } } : undefined,
+            margin: { l: 50, r: 30, t: title ? 50 : 30, b: 50 },
             xaxis: { title: 'x₁', showgrid: true, zeroline: true },
             yaxis: { title: 'x₂', showgrid: true, zeroline: true },
             hovermode: 'closest',
             plot_bgcolor: '#fafafa',
-            paper_bgcolor: '#fafafa'
+            paper_bgcolor: '#fafafa',
+            showlegend: false
         };
         
-        Plotly.newPlot(div, [trace], layout, { responsive: true, displayModeBar: false });
+        Plotly.newPlot(div, [trace], layout, { responsive: true, displayModeBar: true });
         
     } else if (dim === 3) {
         // 3D scatter plot
@@ -721,14 +716,16 @@ function drawPointCloud(divId, points) {
             mode: 'markers',
             type: 'scatter3d',
             marker: {
-                size: 4,
+                size: 5,
                 color: '#3498db',
                 opacity: 0.7
-            }
+            },
+            name: title
         };
         
         const layout = {
-            margin: { l: 0, r: 0, t: 0, b: 0 },
+            title: title ? { text: title, font: { size: 16 } } : undefined,
+            margin: { l: 0, r: 0, t: title ? 50 : 0, b: 0 },
             scene: {
                 xaxis: { title: 'x₁', showgrid: true },
                 yaxis: { title: 'x₂', showgrid: true },
@@ -739,7 +736,8 @@ function drawPointCloud(divId, points) {
             },
             hovermode: 'closest',
             plot_bgcolor: '#fafafa',
-            paper_bgcolor: '#fafafa'
+            paper_bgcolor: '#fafafa',
+            showlegend: false
         };
         
         Plotly.newPlot(div, [trace], layout, { responsive: true, displayModeBar: true });
@@ -997,3 +995,48 @@ function showError(message) {
     const content = document.getElementById('content');
     content.innerHTML = `<div class="error">${message}</div>`;
 }
+
+// Modal functions
+function openPointCloudModal(method) {
+    const methodData = appState.currentResult[method];
+    if (!methodData || !methodData.X || !methodData.Y) return;
+    
+    const modal = document.getElementById('pointCloudModal');
+    const modalTitle = document.getElementById('modalTitle');
+    
+    modalTitle.textContent = `Nubes de Puntos - ${method.toUpperCase()}`;
+    modal.classList.add('active');
+    
+    // Esperar a que el modal esté visible para dibujar
+    setTimeout(() => {
+        drawPointCloud('modalPlotX', methodData.X, 'Espacio X');
+        drawPointCloud('modalPlotY', methodData.Y, 'Espacio Y');
+    }, 50);
+    
+    // Cerrar con ESC
+    document.addEventListener('keydown', handleModalEscape);
+}
+
+function closePointCloudModal() {
+    const modal = document.getElementById('pointCloudModal');
+    modal.classList.remove('active');
+    document.removeEventListener('keydown', handleModalEscape);
+}
+
+function handleModalEscape(event) {
+    if (event.key === 'Escape') {
+        closePointCloudModal();
+    }
+}
+
+// Cerrar modal al hacer clic fuera del contenido
+document.addEventListener('DOMContentLoaded', () => {
+    const modal = document.getElementById('pointCloudModal');
+    if (modal) {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                closePointCloudModal();
+            }
+        });
+    }
+});

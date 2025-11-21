@@ -26,16 +26,40 @@ from persistent_cost.cylinder import cylinder_dgm, cylinder_pipeline
 from persistent_cost.utils.utils import compute_lipschitz_constant
 
 
+class SafeJSONEncoder(json.JSONEncoder):
+    """
+    Encoder personalizado que convierte valores infinitos/NaN a null.
+    """
+    def default(self, obj):
+        if isinstance(obj, (float, np.floating)):
+            if math.isinf(obj) or math.isnan(obj):
+                return None
+            return float(obj)
+        elif isinstance(obj, (int, np.integer)):
+            return int(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super().default(obj)
+
+
 def convert_infinity_to_null(obj):
     """
     Convierte recursivamente valores Infinity a null para serialización JSON válida.
     """
     if isinstance(obj, dict):
         return {k: convert_infinity_to_null(v) for k, v in obj.items()}
-    elif isinstance(obj, list):
+    elif isinstance(obj, (list, tuple)):
+        # Manejar tanto listas como tuplas
         return [convert_infinity_to_null(item) for item in obj]
-    elif isinstance(obj, float) and math.isinf(obj):
-        return None
+    elif isinstance(obj, (float, np.floating)):
+        # Manejar tanto float de Python como numpy float
+        if math.isinf(obj):
+            return None
+        elif math.isnan(obj):
+            return None
+        return float(obj)
+    elif isinstance(obj, (int, np.integer)):
+        return int(obj)
     elif isinstance(obj, np.ndarray):
         # Convertir numpy array a lista y procesar
         return convert_infinity_to_null(obj.tolist())
@@ -107,112 +131,97 @@ def run_single_experiment(experiment_name, n, dim=2, threshold=3.0, maxdim=2, se
     if run_cone:
         if verbose:
             print("\nEjecutando cone (método 1)...")
-        try:
-            cone_results = cone_pipeline(
-                dX, dY, f, 
-                maxdim=maxdim, 
-                cone_eps=0.0, 
-                return_extra=True
-            )
-            dgm_coker_cone, dgm_ker_cone, dgm_cone, dgm_X_cone, dgm_Y_cone, D_cone, missing_cone = cone_results            
-            
-            # También calcular cylinder para comparación
-            cylinder_dgm_ = cylinder_dgm(dX, dY, f, maxdim)
-            
-            results['cone'] = {
-                'X': X.tolist(),
-                'Y': Y.tolist(),
-                'f': f.tolist(),
-                'dgm_coker': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_coker_cone],
-                'dgm_ker': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_ker_cone],
-                'dgm_cone': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_cone],
-                'dgm_cylinder': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in cylinder_dgm_],
-                'dgm_X': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_X_cone],
-                'dgm_Y': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_Y_cone],
-                'missing': missing_cone,
-            }
-            if verbose:
-                print(f"  Cone completado. Ker bars: {len(dgm_ker_cone)}, Coker bars: {len(dgm_coker_cone)}")
-        except Exception as e:
-            print(f"  Error en cone: {e}")
-            import traceback
-            traceback.print_exc()
-            results['cone'] = {'error': str(e)}
+        
+        cone_results = cone_pipeline(
+            dX, dY, f, 
+            maxdim=maxdim, 
+            cone_eps=0.0, 
+            return_extra=True
+        )
+        dgm_coker_cone, dgm_ker_cone, dgm_cone, dgm_X_cone, dgm_Y_cone, D_cone, missing_cone = cone_results            
+        
+        # También calcular cylinder para comparación
+        cylinder_dgm_ = cylinder_dgm(dX, dY, f, maxdim)
+        
+        results['cone'] = {
+            'X': X.tolist(),
+            'Y': Y.tolist(),
+            'f': f if isinstance(f, list) else f.tolist(),
+            'dgm_coker': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_coker_cone],
+            'dgm_ker': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_ker_cone],
+            'dgm_cone': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_cone],
+            'dgm_cylinder': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in cylinder_dgm_],
+            'dgm_X': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_X_cone],
+            'dgm_Y': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_Y_cone],
+            'missing': missing_cone,
+        }
+        if verbose:
+            print(f"  Cone completado. Ker bars: {len(dgm_ker_cone)}, Coker bars: {len(dgm_coker_cone)}")
     
     # Ejecutar cone2 (método 2)
     if run_cone2:
         if verbose:
             print("\nEjecutando cone2 (método 2)...")
-        try:
-            cone2_results = cone2_pipeline(
-                dX, dY, f,
-                maxdim=maxdim,
-                cone_eps=0.0,
-                return_extra=True
-            )
-            (dgm_coker_cone2, dgm_ker_cone2, dgm_cone2, dgm_X_cone2, dgm_Y_cone2,
-             pairs_coker, pairs_ker, pairs_cone, pairs_X, pairs_Y,
-             missing_cone2, simpl2dist_cone, simpl2dist_X, simpl2dist_Y, D_cone2) = cone2_results
-            
-            # También calcular cylinder para comparación
-            cylinder_dgm_2 = cylinder_dgm(dX, dY, f, maxdim)
-            
-            results['cone2'] = {
-                'X': X.tolist(),
-                'Y': Y.tolist(),
-                'f': f.tolist(),
-                'dgm_coker': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_coker_cone2],
-                'dgm_ker': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_ker_cone2],
-                'dgm_cone': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_cone2],
-                'dgm_cylinder': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in cylinder_dgm_2],
-                'dgm_X': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_X_cone2],
-                'dgm_Y': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_Y_cone2],
-                'missing': missing_cone2,
-            }
-            if verbose:
-                print(f"  Cone2 completado. Ker bars: {len(dgm_ker_cone2)}, Coker bars: {len(dgm_coker_cone2)}")
-        except Exception as e:
-            print(f"  Error en cone2: {e}")
-            import traceback
-            traceback.print_exc()
-            results['cone2'] = {'error': str(e)}
+        
+        cone2_results = cone2_pipeline(
+            dX, dY, f,
+            maxdim=maxdim,
+            cone_eps=0.0,
+            return_extra=True
+        )
+        (dgm_coker_cone2, dgm_ker_cone2, dgm_cone2, dgm_X_cone2, dgm_Y_cone2,
+         pairs_coker, pairs_ker, pairs_cone, pairs_X, pairs_Y,
+         missing_cone2, simpl2dist_cone, simpl2dist_X, simpl2dist_Y, D_cone2) = cone2_results
+        
+        # También calcular cylinder para comparación
+        cylinder_dgm_2 = cylinder_dgm(dX, dY, f, maxdim)
+        
+        results['cone2'] = {
+            'X': X.tolist(),
+            'Y': Y.tolist(),
+            'f': f,
+            'dgm_coker': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_coker_cone2],
+            'dgm_ker': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_ker_cone2],
+            'dgm_cone': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_cone2],
+            'dgm_cylinder': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in cylinder_dgm_2],
+            'dgm_X': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_X_cone2],
+            'dgm_Y': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_Y_cone2],
+            'missing': missing_cone2,
+        }
+        if verbose:
+            print(f"  Cone2 completado. Ker bars: {len(dgm_ker_cone2)}, Coker bars: {len(dgm_coker_cone2)}")
     
     # Ejecutar cone_htr (método con HTR)
     if run_htr:
         if verbose:
             print("\nEjecutando cone_htr (método con HTR)...")
-        try:
-            cone_htr_results = cone_pipeline_htr(
-                dX, dY, f, 
-                maxdim=maxdim, 
-                cone_eps=0.0,
-                threshold=threshold,
-                return_extra=True
-            )
-            dgm_coker_htr, dgm_ker_htr, dgm_cone_htr, dgm_X_htr, dgm_Y_htr, D_htr, missing_htr = cone_htr_results
-            
-            # También calcular cylinder para comparación
-            cylinder_dgm_htr = cylinder_dgm(dX, dY, f, maxdim)
-            
-            results['cone_htr'] = {
-                'X': X.tolist(),
-                'Y': Y.tolist(),
-                'f': f.tolist(),
-                'dgm_coker': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_coker_htr],
-                'dgm_ker': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_ker_htr],
-                'dgm_cone': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_cone_htr],
-                'dgm_cylinder': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in cylinder_dgm_htr],
-                'dgm_X': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_X_htr],
-                'dgm_Y': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_Y_htr],
-                'missing': missing_htr,
-            }
-            if verbose:
-                print(f"  Cone_htr completado. Ker bars: {len(dgm_ker_htr)}, Coker bars: {len(dgm_coker_htr)}")
-        except Exception as e:
-            print(f"  Error en cone_htr: {e}")
-            import traceback
-            traceback.print_exc()
-            results['cone_htr'] = {'error': str(e)}
+        
+        cone_htr_results = cone_pipeline_htr(
+            dX, dY, f, 
+            maxdim=maxdim, 
+            cone_eps=0.0,
+            threshold=threshold,
+            return_extra=True
+        )
+        dgm_coker_htr, dgm_ker_htr, dgm_cone_htr, dgm_X_htr, dgm_Y_htr, D_htr, missing_htr = cone_htr_results
+        
+        # También calcular cylinder para comparación
+        cylinder_dgm_htr = cylinder_dgm(dX, dY, f, maxdim)
+        
+        results['cone_htr'] = {
+            'X': X.tolist(),
+            'Y': Y.tolist(),
+            'f': f.tolist(),
+            'dgm_coker': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_coker_htr],
+            'dgm_ker': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_ker_htr],
+            'dgm_cone': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_cone_htr],
+            'dgm_cylinder': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in cylinder_dgm_htr],
+            'dgm_X': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_X_htr],
+            'dgm_Y': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_Y_htr],
+            'missing': missing_htr,
+        }
+        if verbose:
+            print(f"  Cone_htr completado. Ker bars: {len(dgm_ker_htr)}, Coker bars: {len(dgm_coker_htr)}")
     
     # Ejecutar cylinder
     # if run_cylinder:
@@ -270,7 +279,7 @@ def save_results(results, output_dir='results'):
     json_path = output_path / f"{base_name}.json"
     with open(json_path, 'w') as f:
         json_results = convert_infinity_to_null(results)
-        json.dump(json_results, f, indent=2)
+        json.dump(json_results, f, indent=2, cls=SafeJSONEncoder)
     
     # Guardar pickle (para objetos numpy complejos si es necesario)
     pickle_path = output_path / f"{base_name}.pkl"
@@ -432,39 +441,34 @@ def main(
             print(f"# Experimento: {experiment_name}, n={n_val}")
             print(f"{'#'*60}")
             
-            try:
-                results = run_single_experiment(
-                    experiment_name=experiment_name,
-                    n=n_val,
-                    dim=dim,
-                    threshold=threshold,
-                    maxdim=maxdim,
-                    seed=seed,
-                    verbose=True,
-                    run_cone=cone,
-                    run_cone2=cone2,
-                    run_htr=htr,
-                    run_cylinder=cylinder
-                )
-                
-                # Guardar resultados
-                save_results(results, output_dir)
-                
-                # Generar reporte
-                # generate_report(results, output_dir)
-                
-                all_results.append(results)
-                
-            except Exception as e:
-                print(f"\nError ejecutando {experiment_name} con n={n_val}: {e}")
-                import traceback
-                traceback.print_exc()
+            
+            results = run_single_experiment(
+                experiment_name=experiment_name,
+                n=n_val,
+                dim=dim,
+                threshold=threshold,
+                maxdim=maxdim,
+                seed=seed,
+                verbose=True,
+                run_cone=cone,
+                run_cone2=cone2,
+                run_htr=htr,
+                run_cylinder=cylinder
+            )
+            
+            # Guardar resultados
+            save_results(results, output_dir)
+            
+            # Generar reporte
+            # generate_report(results, output_dir)
+            
+            all_results.append(results)
     
     # Guardar resumen de todos los experimentos (convertir Infinity a null)
     summary_path = output_path / 'summary.json'
     with open(summary_path, 'w') as f:
         summary_results = convert_infinity_to_null(all_results)
-        json.dump(summary_results, f, indent=2)
+        json.dump(summary_results, f, indent=2, cls=SafeJSONEncoder)
     
     print(f"\n{'='*60}")
     print(f"TODOS LOS EXPERIMENTOS COMPLETADOS")
