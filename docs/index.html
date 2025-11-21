@@ -553,13 +553,9 @@
                     <label class="control-label">Cargar Datos</label>
                     <div class="file-input-wrapper">
                         <label for="folderInput" class="file-input-label">
-                            Cargar Carpeta
-                        </label>
-                        <label for="fileInput" class="file-input-label">
-                            Cargar Archivos
+                            Cargar Carpeta Local
                         </label>
                         <input type="file" id="folderInput" webkitdirectory directory multiple style="display: none;">
-                        <input type="file" id="fileInput" accept=".json" multiple>
                     </div>
                 </div>
                 
@@ -598,9 +594,8 @@
 
         <main class="main-content">
             <div id="content">
-                <div class="no-results">
-                    <h2>Visualizador de Resultados</h2>
-                    <p>Cargue archivos JSON de resultados para comenzar el análisis</p>
+                <div class="loading">
+                    Cargando resultados desde GitHub...
                 </div>
             </div>
         </main>

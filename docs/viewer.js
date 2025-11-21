@@ -69,7 +69,7 @@ function showCacheIndicator() {
 }
 
 function clearCache() {
-    if (confirm('¿Estás seguro de que quieres limpiar los datos guardados? Esto recargará la página.')) {
+    if (confirm('¿Estás seguro de que quieres limpiar los datos guardados? Esto recargará los datos desde GitHub.')) {
         try {
             localStorage.removeItem('persistentCostViewerState');
             location.reload();
@@ -81,12 +81,10 @@ function clearCache() {
 
 // Inicialización
 document.addEventListener('DOMContentLoaded', () => {
-    const fileInput = document.getElementById('fileInput');
     const folderInput = document.getElementById('folderInput');
     const clearCacheBtn = document.getElementById('clearCacheBtn');
     const showPersistenceToggle = document.getElementById('showPersistenceMetrics');
     
-    fileInput.addEventListener('change', handleFileSelect);
     folderInput.addEventListener('change', handleFolderSelect);
     clearCacheBtn.addEventListener('click', clearCache);
     
@@ -103,11 +101,78 @@ document.addEventListener('DOMContentLoaded', () => {
     const wasRestored = loadStateFromLocalStorage();
     if (wasRestored) {
         showCacheIndicator();
+    } else {
+        // Si no hay estado guardado, cargar datos desde GitHub
+        loadResultsFromGitHub();
     }
     
     // Agregar listener para navegación con teclado
     document.addEventListener('keydown', handleKeyboardNavigation);
 });
+
+// Cargar resultados desde GitHub
+async function loadResultsFromGitHub() {
+    const content = document.getElementById('content');
+    content.innerHTML = '<div class="loading">Cargando resultados desde GitHub...</div>';
+    
+    try {
+        // URL de la API de GitHub para listar contenidos de la carpeta
+        const apiUrl = 'https://api.github.com/repos/habla-liaa/persistent-cost/contents/docs/results';
+        
+        const response = await fetch(apiUrl);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const files = await response.json();
+        
+        // Filtrar solo archivos JSON
+        const jsonFiles = files.filter(file => 
+            file.type === 'file' && file.name.endsWith('.json')
+        );
+        
+        if (jsonFiles.length === 0) {
+            showError('No se encontraron archivos JSON en el repositorio');
+            return;
+        }
+        
+        // Cargar cada archivo JSON
+        const promises = jsonFiles.map(file => loadJSONFromURL(file.download_url));
+        const results = await Promise.all(promises);
+        
+        appState.loadedResults = results.filter(r => r !== null);
+        
+        if (appState.loadedResults.length > 0) {
+            populateSelectors();
+            document.getElementById('resultsSelector').style.display = 'block';
+            saveStateToLocalStorage();
+            
+            // Mostrar el primer resultado automáticamente
+            const firstExperiment = appState.loadedResults[0].experiment_name;
+            document.getElementById('experimentSelect').value = firstExperiment;
+            updateNSelect();
+        } else {
+            showError('No se pudieron cargar los resultados desde GitHub');
+        }
+    } catch (error) {
+        console.error('Error cargando desde GitHub:', error);
+        showError(`Error cargando resultados: ${error.message}. Puede cargar archivos locales usando el botón "Cargar Carpeta Local".`);
+    }
+}
+
+async function loadJSONFromURL(url) {
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('Error cargando JSON desde URL:', error);
+        return null;
+    }
+}
 
 function togglePersistenceMetrics() {
     const showPersistence = document.getElementById('showPersistenceMetrics').checked;
@@ -194,20 +259,13 @@ function updateStatusBar() {
     }
 }
 
-// Manejo de carga de carpeta
+// Manejo de carga de carpeta local
 function handleFolderSelect(event) {
     const files = Array.from(event.target.files).filter(f => f.name.endsWith('.json'));
     if (files.length === 0) {
         showError('No se encontraron archivos JSON en la carpeta');
         return;
     }
-    loadFiles(files);
-}
-
-// Manejo de carga de archivos
-function handleFileSelect(event) {
-    const files = event.target.files;
-    if (files.length === 0) return;
     loadFiles(files);
 }
 
