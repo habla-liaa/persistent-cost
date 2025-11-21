@@ -73,11 +73,11 @@ def conematrix(dX, dY, f, cone_eps=0.0):
     return D
 
 
-def gudhi_rutine(distance_matrix, maxdim):
+def gudhi_rutine(distance_matrix, maxdim, max_edge_length):
     import gudhi as gd
 
     rc = gd.RipsComplex(distance_matrix=distance_matrix,
-                        max_edge_length=float(np.max(distance_matrix)))
+                        max_edge_length=float(max_edge_length))
     st = rc.create_simplex_tree(max_dimension=max(2, maxdim+1))
     st.compute_persistence()
     dgm = [st.persistence_intervals_in_dimension(
@@ -235,18 +235,18 @@ def cone_pipeline(dX, dY, f, maxdim=1, cone_eps=0.0, return_extra=False):
 
     # dY = dY / L
 
-    D = conematrix(dX, dY, f, cone_eps)
+    D = conematrix(dX, dY, f, cone_eps, 9999)
 
-    # print("Computing persistence diagrams...")
+    max_edge_length = 3 * max(np.max(squareform(dX)), np.max(squareform(dY)))
 
     # Guidhi for X
-    dgm_X, pairs_X, simpl2dist_X = gudhi_rutine(squareform(dX), maxdim)
+    dgm_X, pairs_X, simpl2dist_X = gudhi_rutine(squareform(dX), maxdim, max_edge_length)
 
     # Guidhi for Y
-    dgm_Y, pairs_Y, simpl2dist_Y = gudhi_rutine(squareform(dY), maxdim)
+    dgm_Y, pairs_Y, simpl2dist_Y = gudhi_rutine(squareform(dY), maxdim, max_edge_length)
 
     # GUDHI for Cone
-    dgm_cone, pairs_cone, simpl2dist_cone = gudhi_rutine(D, maxdim)
+    dgm_cone, pairs_cone, simpl2dist_cone = gudhi_rutine(D, maxdim, max_edge_length)
 
     pairs_cone = pairs_sort(pairs_cone, maxdim)
     pairs_Y = pairs_sort(pairs_Y, maxdim, offset=n)

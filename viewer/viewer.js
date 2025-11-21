@@ -391,22 +391,60 @@ function generateMethodContents(result) {
 }
 
 function generateDiagramsGrid(methodData, method) {
-    const diagrams = [
-        { key: 'dgm_X', title: 'Espacio X', id: `${method}-X` },
-        { key: 'dgm_Y', title: 'Espacio Y', id: `${method}-Y` },
-        { key: 'dgm_cone', title: 'Cono', id: `${method}-cone` },
-        { key: 'dgm_ker', title: 'Kernel', id: `${method}-ker` },
-        { key: 'dgm_coker', title: 'Cokernel', id: `${method}-coker` }
-    ];
+    let html = '';
     
-    // Agregar missing si existe
-    if (methodData.missing && methodData.missing.length > 0) {
-        diagrams.push({ key: 'missing', title: 'Missing', id: `${method}-missing` });
+    // Primera fila: Nubes de puntos X e Y (si existen)
+    if (methodData.X && methodData.Y) {
+        html += '<h3 style="margin: 20px 0 10px 0; color: #2c3e50; font-size: 1.1em;">Nubes de Puntos</h3>';
+        html += '<div class="diagrams-grid pointclouds-row">';
+        html += generatePointCloudCard(methodData.X, 'Espacio X', `${method}-pointcloud-X`);
+        html += generatePointCloudCard(methodData.Y, 'Espacio Y', `${method}-pointcloud-Y`);
+        html += '</div>';
     }
     
+    // Segunda fila: X, Y, Cylinder
+    html += '<h3 style="margin: 20px 0 10px 0; color: #2c3e50; font-size: 1.1em;">Diagramas de Persistencia</h3>';
+    html += '<div class="diagrams-grid persistence-row">';
+    html += generateDiagramCard({ key: 'dgm_X', title: 'Espacio X', id: `${method}-X` }, methodData);
+    html += generateDiagramCard({ key: 'dgm_Y', title: 'Espacio Y', id: `${method}-Y` }, methodData);
+    html += generateDiagramCard({ key: 'dgm_cylinder', title: 'Cilindro', id: `${method}-cylinder` }, methodData);
+    html += '</div>';
+    
+    // Tercera fila: Cone, Ker, Coker
+    html += '<div class="diagrams-grid persistence-row">';
+    html += generateDiagramCard({ key: 'dgm_cone', title: 'Cono', id: `${method}-cone` }, methodData);
+    html += generateDiagramCard({ key: 'dgm_ker', title: 'Kernel', id: `${method}-ker` }, methodData);
+    html += generateDiagramCard({ key: 'dgm_coker', title: 'Cokernel', id: `${method}-coker` }, methodData);
+    html += '</div>';
+    
+    // Cuarta fila: Missing (si existe)
+    if (methodData.missing && methodData.missing.length > 0) {
+        html += '<div class="diagrams-grid missing-row">';
+        html += generateDiagramCard({ key: 'missing', title: 'Missing', id: `${method}-missing` }, methodData);
+        html += '</div>';
+    }
+    
+    return html;
+}
+
+function generatePointCloudCard(points, title, id) {
+    if (!points || points.length === 0) return '';
+    
+    const dim = points[0].length;
+    if (dim < 2 || dim > 3) return '';
+    
     return `
-        <div class="diagrams-grid">
-            ${diagrams.map(diag => generateDiagramCard(diag, methodData)).join('')}
+        <div class="diagram-card">
+            <h3>${title} <span class="badge" style="background: #34495e; color: white;">${dim}D</span></h3>
+            <div class="pointcloud-canvas" id="${id}"></div>
+            <div class="stats-table">
+                <table>
+                    <tbody>
+                        <tr><td>Puntos</td><td>${points.length}</td></tr>
+                        <tr><td>Dimensión</td><td>${dim}</td></tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     `;
 }
@@ -529,20 +567,119 @@ function drawAllDiagrams(result, method) {
     const methodData = result[method];
     if (!methodData || methodData.error) return;
     
+    // Calcular rango global para todos los diagramas
+    const globalRange = calculateGlobalRange(methodData);
+    
     // Esperar a que el DOM esté actualizado
     setTimeout(() => {
-        drawDiagram(`${method}-X`, methodData.dgm_X);
-        drawDiagram(`${method}-Y`, methodData.dgm_Y);
-        drawDiagram(`${method}-cone`, methodData.dgm_cone);
-        drawDiagram(`${method}-ker`, methodData.dgm_ker);
-        drawDiagram(`${method}-coker`, methodData.dgm_coker);
+        // Dibujar nubes de puntos
+        if (methodData.X) {
+            drawPointCloud(`${method}-pointcloud-X`, methodData.X);
+        }
+        if (methodData.Y) {
+            drawPointCloud(`${method}-pointcloud-Y`, methodData.Y);
+        }
+        
+        // Dibujar diagramas de persistencia con rango global
+        drawDiagram(`${method}-X`, methodData.dgm_X, globalRange);
+        drawDiagram(`${method}-Y`, methodData.dgm_Y, globalRange);
+        drawDiagram(`${method}-cylinder`, methodData.dgm_cylinder, globalRange);
+        drawDiagram(`${method}-cone`, methodData.dgm_cone, globalRange);
+        drawDiagram(`${method}-ker`, methodData.dgm_ker, globalRange);
+        drawDiagram(`${method}-coker`, methodData.dgm_coker, globalRange);
         if (methodData.missing) {
-            drawDiagram(`${method}-missing`, methodData.missing);
+            drawDiagram(`${method}-missing`, methodData.missing, globalRange);
         }
     }, 10);
 }
 
-function drawDiagram(canvasId, dgm) {
+function calculateGlobalRange(methodData) {
+    const diagrams = [
+        methodData.dgm_X,
+        methodData.dgm_Y,
+        methodData.dgm_cylinder,
+        methodData.dgm_cone,
+        methodData.dgm_ker,
+        methodData.dgm_coker,
+        methodData.missing
+    ].filter(d => d);
+    
+    let max = 0;
+    diagrams.forEach(dgm => {
+        if (!dgm) return;
+        const range = calculateRange(dgm);
+        max = Math.max(max, range.max);
+    });
+    
+    return { max: max === 0 ? 1 : max };
+}
+
+function drawPointCloud(divId, points) {
+    const div = document.getElementById(divId);
+    if (!div || !points || points.length === 0) return;
+    
+    const dim = points[0].length;
+    
+    if (dim === 2) {
+        // 2D scatter plot
+        const trace = {
+            x: points.map(p => p[0]),
+            y: points.map(p => p[1]),
+            mode: 'markers',
+            type: 'scatter',
+            marker: {
+                size: 6,
+                color: '#3498db',
+                opacity: 0.7
+            }
+        };
+        
+        const layout = {
+            margin: { l: 40, r: 20, t: 20, b: 40 },
+            xaxis: { title: 'x₁', showgrid: true, zeroline: true },
+            yaxis: { title: 'x₂', showgrid: true, zeroline: true },
+            hovermode: 'closest',
+            plot_bgcolor: '#fafafa',
+            paper_bgcolor: '#fafafa'
+        };
+        
+        Plotly.newPlot(div, [trace], layout, { responsive: true, displayModeBar: false });
+        
+    } else if (dim === 3) {
+        // 3D scatter plot
+        const trace = {
+            x: points.map(p => p[0]),
+            y: points.map(p => p[1]),
+            z: points.map(p => p[2]),
+            mode: 'markers',
+            type: 'scatter3d',
+            marker: {
+                size: 4,
+                color: '#3498db',
+                opacity: 0.7
+            }
+        };
+        
+        const layout = {
+            margin: { l: 0, r: 0, t: 0, b: 0 },
+            scene: {
+                xaxis: { title: 'x₁', showgrid: true },
+                yaxis: { title: 'x₂', showgrid: true },
+                zaxis: { title: 'x₃', showgrid: true },
+                camera: {
+                    eye: { x: 1.5, y: 1.5, z: 1.5 }
+                }
+            },
+            hovermode: 'closest',
+            plot_bgcolor: '#fafafa',
+            paper_bgcolor: '#fafafa'
+        };
+        
+        Plotly.newPlot(div, [trace], layout, { responsive: true, displayModeBar: true });
+    }
+}
+
+function drawDiagram(canvasId, dgm, globalRange) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
     
@@ -563,8 +700,8 @@ function drawDiagram(canvasId, dgm) {
         return;
     }
     
-    // Calcular rango
-    const range = calculateRange(dgm);
+    // Usar rango global si se proporciona, sino calcular local
+    const range = globalRange || calculateRange(dgm);
     if (range.max === 0) range.max = 1;
     
     const padding = 40;

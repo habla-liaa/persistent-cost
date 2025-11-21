@@ -10,10 +10,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.spatial.distance import pdist
 import math
+import fire
 
 from generate_spaces import EXPERIMENTS
 from visualization import (
-    plot_persistence_diagrams,
+    # plot_persistence_diagrams,
     format_bars_for_output,
     classify_cone_bars
 )
@@ -21,7 +22,7 @@ from visualization import (
 # Importar los pipelines desde persistent_cost
 from persistent_cost.cone import cone_pipeline, cone_pipeline_htr
 from persistent_cost.cone2 import cone_pipeline as cone2_pipeline
-from persistent_cost.cylinder import cylinder_pipeline
+from persistent_cost.cylinder import cylinder_dgm, cylinder_pipeline
 from persistent_cost.utils.utils import compute_lipschitz_constant
 
 
@@ -41,9 +42,23 @@ def convert_infinity_to_null(obj):
     return obj
 
 
-def run_single_experiment(experiment_name, n, dim=2, threshold=3.0, maxdim=2, seed=42, verbose=True):
+def run_single_experiment(experiment_name, n, dim=2, threshold=3.0, maxdim=2, seed=42, verbose=True,
+                          run_cone=True, run_cone2=True, run_htr=True, run_cylinder=True):
     """
     Ejecuta un experimento individual con los tres métodos (cone, cone2, cylinder).
+    
+    Args:
+        experiment_name: nombre del experimento
+        n: número de puntos
+        dim: dimensión del espacio
+        threshold: threshold para construcción de complejos
+        maxdim: dimensión homológica máxima
+        seed: semilla para reproducibilidad
+        verbose: mostrar información detallada
+        run_cone: ejecutar método cone (default: True)
+        run_cone2: ejecutar método cone2 (default: True)
+        run_htr: ejecutar método cone_htr (default: True)
+        run_cylinder: ejecutar método cylinder (default: True)
     
     Returns:
         dict con todos los resultados del experimento
@@ -89,108 +104,146 @@ def run_single_experiment(experiment_name, n, dim=2, threshold=3.0, maxdim=2, se
     }
     
     # Ejecutar cone (método 1)
-    if verbose:
-        print("\nEjecutando cone (método 1)...")
-    try:
-        cone_results = cone_pipeline(
-            dX, dY, f, 
-            maxdim=maxdim, 
-            cone_eps=0.0, 
-            return_extra=True
-        )
-        dgm_coker_cone, dgm_ker_cone, dgm_cone, dgm_X_cone, dgm_Y_cone, D_cone, missing_cone = cone_results
-        
-        results['cone'] = {
-            'dgm_coker': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_coker_cone],
-            'dgm_ker': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_ker_cone],
-            'dgm_cone': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_cone],
-            'dgm_X': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_X_cone],
-            'dgm_Y': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_Y_cone],
-            'missing': missing_cone,
-        }
+    if run_cone:
         if verbose:
-            print(f"  Cone completado. Ker bars: {len(dgm_ker_cone)}, Coker bars: {len(dgm_coker_cone)}")
-    except Exception as e:
-        print(f"  Error en cone: {e}")
-        results['cone'] = {'error': str(e)}
+            print("\nEjecutando cone (método 1)...")
+        try:
+            cone_results = cone_pipeline(
+                dX, dY, f, 
+                maxdim=maxdim, 
+                cone_eps=0.0, 
+                return_extra=True
+            )
+            dgm_coker_cone, dgm_ker_cone, dgm_cone, dgm_X_cone, dgm_Y_cone, D_cone, missing_cone = cone_results            
+            
+            # También calcular cylinder para comparación
+            cylinder_dgm_ = cylinder_dgm(dX, dY, f, maxdim)
+            
+            results['cone'] = {
+                'X': X.tolist(),
+                'Y': Y.tolist(),
+                'f': f.tolist(),
+                'dgm_coker': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_coker_cone],
+                'dgm_ker': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_ker_cone],
+                'dgm_cone': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_cone],
+                'dgm_cylinder': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in cylinder_dgm_],
+                'dgm_X': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_X_cone],
+                'dgm_Y': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_Y_cone],
+                'missing': missing_cone,
+            }
+            if verbose:
+                print(f"  Cone completado. Ker bars: {len(dgm_ker_cone)}, Coker bars: {len(dgm_coker_cone)}")
+        except Exception as e:
+            print(f"  Error en cone: {e}")
+            import traceback
+            traceback.print_exc()
+            results['cone'] = {'error': str(e)}
     
     # Ejecutar cone2 (método 2)
-    if verbose:
-        print("\nEjecutando cone2 (método 2)...")
-    try:
-        cone2_results = cone2_pipeline(
-            dX, dY, f,
-            maxdim=maxdim,
-            cone_eps=0.0,
-            return_extra=True
-        )
-        (dgm_coker_cone2, dgm_ker_cone2, dgm_cone2, dgm_X_cone2, dgm_Y_cone2,
-         pairs_coker, pairs_ker, pairs_cone, pairs_X, pairs_Y,
-         missing_cone2, simpl2dist_cone, simpl2dist_X, simpl2dist_Y, D_cone2) = cone2_results
-        
-        results['cone2'] = {
-            'dgm_coker': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_coker_cone2],
-            'dgm_ker': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_ker_cone2],
-            'dgm_cone': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_cone2],
-            'dgm_X': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_X_cone2],
-            'dgm_Y': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_Y_cone2],
-            'missing': missing_cone2,
-        }
+    if run_cone2:
         if verbose:
-            print(f"  Cone2 completado. Ker bars: {len(dgm_ker_cone2)}, Coker bars: {len(dgm_coker_cone2)}")
-    except Exception as e:
-        print(f"  Error en cone2: {e}")
-        results['cone2'] = {'error': str(e)}
+            print("\nEjecutando cone2 (método 2)...")
+        try:
+            cone2_results = cone2_pipeline(
+                dX, dY, f,
+                maxdim=maxdim,
+                cone_eps=0.0,
+                return_extra=True
+            )
+            (dgm_coker_cone2, dgm_ker_cone2, dgm_cone2, dgm_X_cone2, dgm_Y_cone2,
+             pairs_coker, pairs_ker, pairs_cone, pairs_X, pairs_Y,
+             missing_cone2, simpl2dist_cone, simpl2dist_X, simpl2dist_Y, D_cone2) = cone2_results
+            
+            # También calcular cylinder para comparación
+            cylinder_dgm_2 = cylinder_dgm(dX, dY, f, maxdim)
+            
+            results['cone2'] = {
+                'X': X.tolist(),
+                'Y': Y.tolist(),
+                'f': f.tolist(),
+                'dgm_coker': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_coker_cone2],
+                'dgm_ker': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_ker_cone2],
+                'dgm_cone': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_cone2],
+                'dgm_cylinder': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in cylinder_dgm_2],
+                'dgm_X': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_X_cone2],
+                'dgm_Y': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_Y_cone2],
+                'missing': missing_cone2,
+            }
+            if verbose:
+                print(f"  Cone2 completado. Ker bars: {len(dgm_ker_cone2)}, Coker bars: {len(dgm_coker_cone2)}")
+        except Exception as e:
+            print(f"  Error en cone2: {e}")
+            import traceback
+            traceback.print_exc()
+            results['cone2'] = {'error': str(e)}
     
     # Ejecutar cone_htr (método con HTR)
-    if verbose:
-        print("\nEjecutando cone_htr (método con HTR)...")
-    try:
-        cone_htr_results = cone_pipeline_htr(
-            dX, dY, f, 
-            maxdim=maxdim, 
-            cone_eps=0.0,
-            threshold=threshold,
-            return_extra=True
-        )
-        dgm_coker_htr, dgm_ker_htr, dgm_cone_htr, dgm_X_htr, dgm_Y_htr, D_htr, missing_htr = cone_htr_results
-        
-        results['cone_htr'] = {
-            'dgm_coker': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_coker_htr],
-            'dgm_ker': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_ker_htr],
-            'dgm_cone': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_cone_htr],
-            'dgm_X': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_X_htr],
-            'dgm_Y': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_Y_htr],
-            'missing': missing_htr,
-        }
+    if run_htr:
         if verbose:
-            print(f"  Cone_htr completado. Ker bars: {len(dgm_ker_htr)}, Coker bars: {len(dgm_coker_htr)}")
-    except Exception as e:
-        print(f"  Error en cone_htr: {e}")
-        import traceback
-        traceback.print_exc()
-        results['cone_htr'] = {'error': str(e)}
+            print("\nEjecutando cone_htr (método con HTR)...")
+        try:
+            cone_htr_results = cone_pipeline_htr(
+                dX, dY, f, 
+                maxdim=maxdim, 
+                cone_eps=0.0,
+                threshold=threshold,
+                return_extra=True
+            )
+            dgm_coker_htr, dgm_ker_htr, dgm_cone_htr, dgm_X_htr, dgm_Y_htr, D_htr, missing_htr = cone_htr_results
+            
+            # También calcular cylinder para comparación
+            cylinder_dgm_htr = cylinder_dgm(dX, dY, f, maxdim)
+            
+            results['cone_htr'] = {
+                'X': X.tolist(),
+                'Y': Y.tolist(),
+                'f': f.tolist(),
+                'dgm_coker': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_coker_htr],
+                'dgm_ker': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_ker_htr],
+                'dgm_cone': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_cone_htr],
+                'dgm_cylinder': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in cylinder_dgm_htr],
+                'dgm_X': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_X_htr],
+                'dgm_Y': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_Y_htr],
+                'missing': missing_htr,
+            }
+            if verbose:
+                print(f"  Cone_htr completado. Ker bars: {len(dgm_ker_htr)}, Coker bars: {len(dgm_coker_htr)}")
+        except Exception as e:
+            print(f"  Error en cone_htr: {e}")
+            import traceback
+            traceback.print_exc()
+            results['cone_htr'] = {'error': str(e)}
     
-    # # Ejecutar cylinder
-    # if verbose:
-    #     print("\nEjecutando cylinder...")
-    # try:
-    #     dgm_ker_cyl, dgm_coker_cyl = cylinder_pipeline(
-    #         dX, dY, f,
-    #         threshold=threshold,
-    #         maxdim=maxdim,
-    #         verbose=False
-    #     )
-        
-    #     results['cylinder'] = {
-    #         'dgm_ker': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_ker_cyl],
-    #         'dgm_coker': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_coker_cyl],
-    #     }
-    #     if verbose:
-    #         print(f"  Cylinder completado. Ker bars: {len(dgm_ker_cyl)}, Coker bars: {len(dgm_coker_cyl)}")
-    # except Exception as e:
-    #     print(f"  Error en cylinder: {e}")
-    #     results['cylinder'] = {'error': str(e)}
+    # Ejecutar cylinder
+    if run_cylinder:
+        if verbose:
+            print("\nEjecutando cylinder...")
+        try:
+            dgm_ker_cyl, dgm_coker_cyl = cylinder_pipeline(
+                dX, dY, f,
+                threshold=threshold,
+                maxdim=maxdim,
+                verbose=False
+            )
+            
+            # También calcular cylinder_dgm para comparación
+            cylinder_dgm_cyl = cylinder_dgm(dX, dY, f, maxdim)
+            
+            results['cylinder'] = {
+                'X': X.tolist(),
+                'Y': Y.tolist(),
+                'f': f.tolist(),
+                'dgm_ker': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_ker_cyl],
+                'dgm_coker': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_coker_cyl],
+                'dgm_cylinder': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in cylinder_dgm_cyl],
+            }
+            if verbose:
+                print(f"  Cylinder completado. Ker bars: {len(dgm_ker_cyl)}, Coker bars: {len(dgm_coker_cyl)}")
+        except Exception as e:
+            print(f"  Error en cylinder: {e}")
+            import traceback
+            traceback.print_exc()
+            results['cylinder'] = {'error': str(e)}
     
     return results
 
@@ -285,48 +338,106 @@ def generate_report(results, output_dir='results'):
     
     print(f"Reporte generado en: {report_path}")
     
-    # Generar gráficos
-    try:
-        plot_persistence_diagrams(results, exp_dir)
-        print(f"Gráficos generados en: {exp_dir}")
-    except Exception as e:
-        print(f"Error generando gráficos: {e}")
+    # # Generar gráficos
+    # try:
+    #     # plot_persistence_diagrams(results, exp_dir)
+    #     # print(f"Gráficos generados en: {exp_dir}")
+    # except Exception as e:
+    #     print(f"Error generando gráficos: {e}")
     
     return report_path
 
 
-def main():
+def main(
+    n: tuple = (20, 50),
+    dim: int = 2,
+    maxdim: int = 2,
+    threshold: float = 3.0,
+    seed: int = 42,
+    experiments: tuple = None,
+    cone: bool = True,
+    cone2: bool = True,
+    htr: bool = True,
+    cylinder: bool = True,
+):
     """
     Función principal que ejecuta todos los experimentos.
+    
+    Args:
+        n: Valores de n para los experimentos (default: (20, 50))
+        dim: Dimensión del espacio (default: 2)
+        maxdim: Dimensión homológica máxima (default: 2)
+        threshold: Threshold para construcción de complejos (default: 3.0)
+        seed: Semilla para reproducibilidad (default: 42)
+        experiments: Tupla con nombres de experimentos a ejecutar (default: None = todos)
+        cone: Ejecutar método cone (default: True)
+        cone2: Ejecutar método cone2 (default: True)
+        htr: Ejecutar método cone_htr (default: True)
+        cylinder: Ejecutar método cylinder (default: True)
+    
+    Examples:
+        # Ejecutar todos los métodos con valores por defecto
+        python run_experiments.py main
+        
+        # Ejecutar solo htr
+        python run_experiments.py main --cone=False --cone2=False --cylinder=False
+        
+        # Valores personalizados de n
+        python run_experiments.py main --n 10 30 100
+        
+        # Experimentos específicos
+        python run_experiments.py main --experiments circulo_embebido esfera_proyecta
     """
-    # Configuración
-    n_values = [50, 100]
-    dim = 2
-    maxdim = 2
-    threshold = 3.0
-    seed = 42
+    # Convertir n a lista si es necesario
+    if isinstance(n, int):
+        n_values = [n]
+    else:
+        n_values = list(n)
     
     output_dir = 'results'
     os.makedirs(output_dir, exist_ok=True)
     
+    # Determinar qué experimentos ejecutar
+    if experiments:
+        experiments_list = list(experiments) if not isinstance(experiments, str) else [experiments]
+        experiments_to_run = {k: EXPERIMENTS[k] for k in experiments_list if k in EXPERIMENTS}
+        if not experiments_to_run:
+            print(f"Error: Ninguno de los experimentos especificados existe.")
+            print(f"Disponibles: {list(EXPERIMENTS.keys())}")
+            return
+    else:
+        experiments_to_run = EXPERIMENTS
+    
+    print(f"\nMétodos activos:")
+    print(f"  - cone: {cone}")
+    print(f"  - cone2: {cone2}")
+    print(f"  - htr: {htr}")
+    print(f"  - cylinder: {cylinder}")
+    print(f"\nExperimentos a ejecutar: {list(experiments_to_run.keys())}")
+    print(f"Valores de n: {n_values}\n")
+    
     # Ejecutar todos los experimentos
     all_results = []
     
-    for experiment_name in EXPERIMENTS.keys():
-        for n in n_values:
+    for experiment_name in experiments_to_run.keys():
+        for n_val in n_values:
             print(f"\n{'#'*60}")
-            print(f"# Experimento: {experiment_name}, n={n}")
+            print(f"# Experimento: {experiment_name}, n={n_val}")
             print(f"{'#'*60}")
             
             try:
                 results = run_single_experiment(
                     experiment_name=experiment_name,
-                    n=n,
+                    n=n_val,
                     dim=dim,
                     threshold=threshold,
                     maxdim=maxdim,
                     seed=seed,
-                    verbose=True
+                    verbose=True,
+                    run_cone=cone,
+                    run_cone2=cone2,
+                    run_htr=htr,
+                    run_cylinder=cylinder
                 )
                 
                 # Guardar resultados
@@ -338,7 +449,7 @@ def main():
                 all_results.append(results)
                 
             except Exception as e:
-                print(f"\nError ejecutando {experiment_name} con n={n}: {e}")
+                print(f"\nError ejecutando {experiment_name} con n={n_val}: {e}")
                 import traceback
                 traceback.print_exc()
     
@@ -355,4 +466,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    fire.Fire()

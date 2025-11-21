@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Visualizador de Experimentos - Persistent Cost</title>
+    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -247,6 +248,20 @@
             gap: 20px;
             margin-bottom: 30px;
         }
+        
+        .diagrams-grid.pointclouds-row {
+            grid-template-columns: repeat(2, 1fr);
+            margin-bottom: 20px;
+        }
+        
+        .diagrams-grid.persistence-row {
+            grid-template-columns: repeat(3, 1fr);
+        }
+        
+        .diagrams-grid.missing-row {
+            grid-template-columns: 1fr;
+            max-width: 600px;
+        }
 
         .diagram-card {
             background: white;
@@ -268,6 +283,15 @@
         .diagram-canvas {
             width: 100%;
             height: 300px;
+            background: #fafafa;
+            border: 1px solid #e0e0e0;
+            border-radius: 2px;
+            margin-bottom: 12px;
+        }
+        
+        .pointcloud-canvas {
+            width: 100%;
+            height: 400px;
             background: #fafafa;
             border: 1px solid #e0e0e0;
             border-radius: 2px;
@@ -466,8 +490,12 @@
         }
 
         @media (max-width: 1200px) {
-            .diagrams-grid {
+            .diagrams-grid.persistence-row {
                 grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .diagrams-grid.pointclouds-row {
+                grid-template-columns: 1fr;
             }
         }
         
@@ -480,7 +508,9 @@
                 margin-left: 220px;
             }
             
-            .diagrams-grid {
+            .diagrams-grid,
+            .diagrams-grid.persistence-row,
+            .diagrams-grid.pointclouds-row {
                 grid-template-columns: 1fr;
             }
             

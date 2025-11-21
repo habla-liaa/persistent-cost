@@ -1,5 +1,6 @@
 from collections import defaultdict
 from IPython import embed
+from ripser import ripser
 from scipy import sparse
 from scipy.spatial.distance import pdist, squareform
 import numpy as np
@@ -27,6 +28,15 @@ def simplices_to_list(simplices, maxdim):
     idx2dim = [s['dim'] for s in simplices]
     return simp, epsilons, idx2dim
 
+def cylinder_dgm(dX, dY, f, maxdim):
+
+    cylinder = cylindermatrix(dX, dY, f)
+    threshold = 3 * max(np.max(squareform(dX)), np.max(squareform(dY)))
+
+    dgm_cylinder = ripser(cylinder, maxdim=maxdim, distance_matrix=True, thresh=threshold)["dgms"]
+    
+    return dgm_cylinder
+
 
 def cylinder_pipeline(dX, dY, f, threshold, maxdim, verbose=False):
 
@@ -38,7 +48,6 @@ def cylinder_pipeline(dX, dY, f, threshold, maxdim, verbose=False):
     if verbose:
         print(f"Building cylinder matrix...")
     cilindro = cylindermatrix(dX, dY, f)
-
 
     if verbose:
         print("Building cilinder boundary matrices...")
@@ -123,7 +132,7 @@ def cylinder_pipeline(dX, dY, f, threshold, maxdim, verbose=False):
     return d_ker, d_cok
 
 
-def cylindermatrix(dX, dY, f):
+def cylindermatrix(dX, dY, f, max_value=np.inf):
     n = matrix_size_from_condensed(dX)
     m = matrix_size_from_condensed(dY)
 
@@ -138,7 +147,7 @@ def cylindermatrix(dX, dY, f):
     j = indices[1].flatten()
     f_i = f[i]
 
-    DY_fy = np.ones((n, m), dtype=float) * np.inf
+    DY_fy = np.ones((n, m), dtype=float) * max_value
 
     ijs = [(ii, jj) for ii, jj in zip(i, j) if jj in f_i]
     i, j = zip(*ijs)

@@ -61,8 +61,8 @@ def kercoker_bars(dgm, dgmX, dgmY, cone_eps, tol=1e-11):
     ker_dgm = [[] for _ in range(maxdim + 1)]
     missing = [[] for _ in range(maxdim + 1)]
 
-    assert dgm[0][-1][1] == np.inf, "Expected infinite bar in dimension 0 of cone diagram."
-    dgm[0] = dgm[0][:-1]  # remove the infinite bar in dim 0
+    # assert dgm[0][-1][1] == np.inf, "Expected infinite bar in dimension 0 of cone diagram."
+    # dgm[0] = dgm[0][:-1]  # remove the infinite bar in dim 0
 
     for dim in range(maxdim + 1):  # dimension cone diagram
         for i, r in enumerate(dgm[dim]):
@@ -171,13 +171,13 @@ def conematrix_blocks(DX, DY, DY_fy, eps):
     return D
 
 
-def conematrix(dX, dY, f, cone_eps=0.0):
+def conematrix(dX, dY, f, cone_eps=0.0, max_value=np.inf):
 
     n = matrix_size_from_condensed(dX)
     m = matrix_size_from_condensed(dY)
     f = np.array(f)
 
-    DY_fy = np.ones((n, m), dtype=float) * np.inf
+    DY_fy = np.ones((n, m), dtype=float) * max_value
 
     # dY_fy = d(f(x_i),y_j) para todo i,j
     indices = np.indices((n, m))
@@ -221,26 +221,13 @@ def cone_pipeline(dX, dY, f, maxdim=1, cone_eps=0.0, tol=1e-11, return_extra=Fal
     
     f = np.array(f)
 
-    # n = matrix_size_from_condensed(dX)
-    # m = matrix_size_from_condensed(dY)
+    D = conematrix(dX, dY, f, cone_eps, 9999)
 
+    thresh = 3 * max(np.max(squareform(dX)), np.max(squareform(dY)))
 
-    # # dY_ff = d(f(x_i),f(x_j)) para todo i,j
-    # i, j = np.triu_indices(n, k=1)
-    # f_i, f_j = f[i], f[j]
-    # dY_ff = squareform(dY)[f_i, f_j]
-
-    # L = lipschitz(dX, dY_ff)
-
-    # dY = dY / L
-
-    D = conematrix(dX, dY, f, cone_eps)
-
-    # print("Computing persistence diagrams...")
-    dgm_X = ripser(squareform(dX), distance_matrix=True, maxdim=maxdim)["dgms"]
-    dgm_Y = ripser(squareform(dY), distance_matrix=True, maxdim=maxdim)["dgms"]
-    dgm_cone = ripser(D, maxdim=maxdim, distance_matrix=True)["dgms"]
-    # print("Done.")
+    dgm_X = ripser(squareform(dX), distance_matrix=True, maxdim=maxdim, thresh=thresh)["dgms"]
+    dgm_Y = ripser(squareform(dY), distance_matrix=True, maxdim=maxdim, thresh=thresh)["dgms"]
+    dgm_cone = ripser(D, maxdim=maxdim, distance_matrix=True, thresh=thresh)["dgms"]
 
     dgm_coker, dgm_ker, missing = kercoker_bars(
         dgm_cone, dgm_X, dgm_Y, cone_eps, tol)
