@@ -106,11 +106,10 @@ def circulo_en_toro(n=50, k=None, seed=42):
     r, R = 1.0, 2.0
     theta_circle = np.linspace(0, 2*np.pi, k, endpoint=False)
     
-    x_circle = np.full(k, R)  # todos en x=R
     y_circle = np.zeros(k)
     z_circle = r * np.sin(theta_circle)
     # Ajustamos para que sea un círculo en el plano correcto
-    y_circle = r * np.cos(theta_circle)
+    x_circle = r * np.cos(theta_circle)
     
     X = np.column_stack([x_circle, y_circle, z_circle])
     

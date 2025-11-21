@@ -3,9 +3,11 @@ import numpy as np
 from scipy.spatial.distance import pdist, squareform
 from persistent_cost.cone import matrix_size_from_condensed, conematrix
 
+
 def remove_empty_dims(pairs):
     """Remove empty dimensions from a persistence diagram."""
     return [dim for dim in pairs if len(dim) > 0]
+
 
 def gudhi_rutine(distance_matrix, maxdim, max_edge_length):
     import gudhi as gd
@@ -160,27 +162,21 @@ def cone_pipeline(dX, dY, f, maxdim=1, cone_eps=0.0, return_extra=False):
 
     f = np.array(f)
 
-    # # dY_ff = d(f(x_i),f(x_j)) para todo i,j
-    # i, j = np.triu_indices(n, k=1)
-    # f_i, f_j = f[i], f[j]
-    # dY_ff = squareform(dY)[f_i, f_j]
-
-    # L = lipschitz(dX, dY_ff)
-
-    # dY = dY / L
-
     D = conematrix(dX, dY, f, cone_eps, 9999)
 
     max_edge_length = 3 * max(np.max(squareform(dX)), np.max(squareform(dY)))
 
     # Guidhi for X
-    dgm_X, pairs_X, simpl2dist_X = gudhi_rutine(squareform(dX), maxdim, max_edge_length)
+    dgm_X, pairs_X, simpl2dist_X = gudhi_rutine(
+        squareform(dX), maxdim, max_edge_length)
 
     # Guidhi for Y
-    dgm_Y, pairs_Y, simpl2dist_Y = gudhi_rutine(squareform(dY), maxdim, max_edge_length)
+    dgm_Y, pairs_Y, simpl2dist_Y = gudhi_rutine(
+        squareform(dY), maxdim, max_edge_length)
 
     # GUDHI for Cone
-    dgm_cone, pairs_cone, simpl2dist_cone = gudhi_rutine(D, maxdim, max_edge_length)
+    dgm_cone, pairs_cone, simpl2dist_cone = gudhi_rutine(
+        D, maxdim, max_edge_length)
 
     pairs_cone = pairs_sort(pairs_cone, maxdim)
     pairs_Y = pairs_sort(pairs_Y, maxdim, offset=n)
