@@ -2,10 +2,10 @@
 Script principal para ejecutar todos los experimentos y guardar resultados.
 """
 
-import os
 import json
 import pickle
 from datetime import datetime
+from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.spatial.distance import pdist
@@ -215,35 +215,39 @@ def run_single_experiment(experiment_name, n, dim=2, threshold=3.0, maxdim=2, se
             results['cone_htr'] = {'error': str(e)}
     
     # Ejecutar cylinder
-    if run_cylinder:
-        if verbose:
-            print("\nEjecutando cylinder...")
-        try:
-            dgm_ker_cyl, dgm_coker_cyl = cylinder_pipeline(
-                dX, dY, f,
-                threshold=threshold,
-                maxdim=maxdim,
-                verbose=False
-            )
+    # if run_cylinder:
+    #     if verbose:
+    #         print("\nEjecutando cylinder...")
+    #     try:
+    #         dgm_ker_cyl, dgm_coker_cyl = cylinder_pipeline(
+    #             dX, dY, f,
+    #             threshold=threshold,
+    #             maxdim=maxdim,
+    #             verbose=False
+    #         )
             
-            # También calcular cylinder_dgm para comparación
-            cylinder_dgm_cyl = cylinder_dgm(dX, dY, f, maxdim)
+    #         # También calcular cylinder_dgm para comparación
+    #         cylinder_dgm_cyl = cylinder_dgm(dX, dY, f, maxdim)
             
-            results['cylinder'] = {
-                'X': X.tolist(),
-                'Y': Y.tolist(),
-                'f': f.tolist(),
-                'dgm_ker': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_ker_cyl],
-                'dgm_coker': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_coker_cyl],
-                'dgm_cylinder': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in cylinder_dgm_cyl],
-            }
-            if verbose:
-                print(f"  Cylinder completado. Ker bars: {len(dgm_ker_cyl)}, Coker bars: {len(dgm_coker_cyl)}")
-        except Exception as e:
-            print(f"  Error en cylinder: {e}")
-            import traceback
-            traceback.print_exc()
-            results['cylinder'] = {'error': str(e)}
+            
+    #         results['cylinder'] = {
+    #             'X': X.tolist(),
+    #             'Y': Y.tolist(),
+    #             'f': f.tolist(),
+    #             'dgm_ker': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_ker_cyl],
+    #             'dgm_coker': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_coker_cyl],
+    #             'dgm_cylinder': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in cylinder_dgm_cyl],
+    #             'dgm_X': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_X],
+    #             'dgm_Y': [arr.tolist() if isinstance(arr, np.ndarray) else arr for arr in dgm_Y],
+    #             'missing': [],  # Cylinder no calcula missing bars
+    #         }
+    #         if verbose:
+    #             print(f"  Cylinder completado. Ker bars: {len(dgm_ker_cyl)}, Coker bars: {len(dgm_coker_cyl)}")
+    #     except Exception as e:
+    #         print(f"  Error en cylinder: {e}")
+    #         import traceback
+    #         traceback.print_exc()
+    #         results['cylinder'] = {'error': str(e)}
     
     return results
 
@@ -252,7 +256,8 @@ def save_results(results, output_dir='results'):
     """
     Guarda los resultados en formato JSON y pickle.
     """
-    os.makedirs(output_dir, exist_ok=True)
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
     
     experiment_name = results['experiment_name']
     n = results['n']
@@ -262,13 +267,13 @@ def save_results(results, output_dir='results'):
     base_name = f"{experiment_name}_n{n}_{timestamp}"
     
     # Guardar JSON (convertir Infinity a null para compatibilidad)
-    json_path = os.path.join(output_dir, f"{base_name}.json")
+    json_path = output_path / f"{base_name}.json"
     with open(json_path, 'w') as f:
         json_results = convert_infinity_to_null(results)
         json.dump(json_results, f, indent=2)
     
     # Guardar pickle (para objetos numpy complejos si es necesario)
-    pickle_path = os.path.join(output_dir, f"{base_name}.pkl")
+    pickle_path = output_path / f"{base_name}.pkl"
     with open(pickle_path, 'wb') as f:
         pickle.dump(results, f)
     
@@ -287,11 +292,12 @@ def generate_report(results, output_dir='results'):
     n = results['n']
     
     # Crear subdirectorio para este experimento
-    exp_dir = os.path.join(output_dir, f"{experiment_name}_n{n}")
-    os.makedirs(exp_dir, exist_ok=True)
+    output_path = Path(output_dir)
+    exp_dir = output_path / f"{experiment_name}_n{n}"
+    exp_dir.mkdir(parents=True, exist_ok=True)
     
     # Generar reporte de texto
-    report_path = os.path.join(exp_dir, 'report.txt')
+    report_path = exp_dir / 'report.txt'
     with open(report_path, 'w') as f:
         f.write(f"REPORTE DE EXPERIMENTO\n")
         f.write(f"{'='*60}\n\n")
@@ -359,6 +365,7 @@ def main(
     cone2: bool = True,
     htr: bool = True,
     cylinder: bool = True,
+    output_dir: str = 'results',
 ):
     """
     Función principal que ejecuta todos los experimentos.
@@ -394,8 +401,8 @@ def main(
     else:
         n_values = list(n)
     
-    output_dir = 'results'
-    os.makedirs(output_dir, exist_ok=True)
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
     
     # Determinar qué experimentos ejecutar
     if experiments:
@@ -444,7 +451,7 @@ def main(
                 save_results(results, output_dir)
                 
                 # Generar reporte
-                generate_report(results, output_dir)
+                # generate_report(results, output_dir)
                 
                 all_results.append(results)
                 
@@ -454,7 +461,7 @@ def main(
                 traceback.print_exc()
     
     # Guardar resumen de todos los experimentos (convertir Infinity a null)
-    summary_path = os.path.join(output_dir, 'summary.json')
+    summary_path = output_path / 'summary.json'
     with open(summary_path, 'w') as f:
         summary_results = convert_infinity_to_null(all_results)
         json.dump(summary_results, f, indent=2)

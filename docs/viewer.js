@@ -166,7 +166,11 @@ async function loadJSONFromURL(url) {
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        const data = await response.json();
+        // Get text first, then handle Infinity values before parsing
+        const text = await response.text();
+        // Replace "Infinity" with null (which represents infinite bars)
+        const sanitizedText = text.replace(/:\s*Infinity/g, ': null');
+        const data = JSON.parse(sanitizedText);
         return data;
     } catch (error) {
         console.error('Error cargando JSON desde URL:', error);
