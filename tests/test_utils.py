@@ -4,7 +4,7 @@ from scipy import sparse
 
 from persistent_cost.utils.utils import (
     build_ordered_boundary_matrix,
-    lipschitz_constant,
+    compute_lipschitz_constant,
     match_simplices,
     matrix_size_from_condensed,
 )
@@ -207,7 +207,7 @@ def test_lipschitz_constant_scaled_square():
     print(dY)
 
     # Compute Lipschitz constant
-    L = lipschitz_constant(dX, dY, f)
+    L = compute_lipschitz_constant(dX, dY, f)
 
     print(f"\nComputed Lipschitz constant: {L}")
 

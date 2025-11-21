@@ -2,12 +2,15 @@ import numpy as np
 from scipy.spatial.distance import pdist, squareform
 import torch
 from ripser import ripser
-from persistent_cost.utils.utils import conematrix
 
 
 def findclose(x, A, tol=1e-5):
     # return ((x + tol) >= A) & ((x - tol) <= A)
     return np.abs(x-A) < tol
+
+
+def lipschitz(dX, dY):
+    return np.max(dY / dX)
 
 
 def matrix_size_from_condensed(dX):
@@ -19,11 +22,11 @@ def to_condensed_form(i, j, m):
     return m * i + j - ((i + 2) * (i + 1)) // 2.0
 
 
-# def general_position_distance_matrix_(X, perturbation=1e-7):
-#     n = len(X)
-#     Xperturbation = perturbation * np.random.rand((n * (n - 1) // 2))
-#     dX = pdist(X) + Xperturbation
-#     return dX
+def general_position_distance_matrix_(X, perturbation=1e-7):
+    n = len(X)
+    Xperturbation = perturbation * np.random.rand((n * (n - 1) // 2))
+    dX = pdist(X) + Xperturbation
+    return dX
 
 
 def general_position_distance_matrix(X, perturbation=1e-7):
@@ -145,6 +148,71 @@ def kercoker_bars_(dgm, dgmX, dgmY, cone_eps, tol=1e-11):
     return coker_dgm, ker_dgm
 
 
+def conematrix_blocks(DX, DY, DY_fy, eps):
+    n = len(DX)
+    m = len(DY)
+
+    D = np.zeros((n + m + 1, n + m + 1))
+    D[0:n, 0:n] = DX
+    D[n: n + m, n: n + m] = DY
+
+    D[0:n, n: n + m] = DY_fy
+    D[n: n + m, 0:n] = DY_fy.T
+
+    R = np.inf
+    # R = max(DX.max(), DY_fy[~np.isinf(DY_fy)].max()) + 1 #instead of np.inf
+
+    D[n + m, n: n + m] = R
+    D[n: n + m, n + m] = R
+
+    D[n + m, :n] = eps
+    D[:n, n + m] = eps
+
+    return D
+
+
+def conematrix(dX, dY, f, cone_eps=0.0, max_value=np.inf):
+
+    n = matrix_size_from_condensed(dX)
+    m = matrix_size_from_condensed(dY)
+    f = np.array(f)
+
+    DY_fy = np.ones((n, m), dtype=float) * max_value
+
+    # dY_fy = d(f(x_i),y_j) para todo i,j
+    indices = np.indices((n, m))
+    i = indices[0].flatten()
+    j = indices[1].flatten()
+    f_i = f[i]
+
+    ijs = [(ii, jj) for ii, jj in zip(i, j) if jj in f_i]
+    i, j = zip(*ijs)
+    i = np.array(i, dtype=int)
+    j = np.array(j, dtype=int)
+
+    f_i = f[i]
+
+    DY_fy[i, j] = squareform(dY)[f_i, j]
+
+    # dX     DY_fy
+    # DY_fy  dY
+    D = conematrix_blocks(squareform(dX), squareform(dY), DY_fy, cone_eps)
+    return D
+
+def gudhi_rutine(distance_matrix, maxdim, max_edge_length):
+    import gudhi as gd
+
+    rc = gd.RipsComplex(distance_matrix=distance_matrix,
+                        max_edge_length=float(max_edge_length))
+    st = rc.create_simplex_tree(max_dimension=max(2, maxdim+1))
+    st.compute_persistence()
+    dgm = [st.persistence_intervals_in_dimension(
+        dim) for dim in range(maxdim+1)]
+    pairs = st.persistence_pairs()
+    simpl2dist = {tuple(a[0]): a[1]
+                  for a in st.get_simplices() if len(a[0]) < maxdim+3}
+    return dgm, pairs, simpl2dist
+
 def cone_pipeline(dX, dY, f, maxdim=1, cone_eps=0.0, tol=1e-11, return_extra=False):
     """
     TODO: Compute the total persistence diagram using the cone algorithm.
@@ -168,14 +236,20 @@ def cone_pipeline(dX, dY, f, maxdim=1, cone_eps=0.0, tol=1e-11, return_extra=Fal
 
     D = conematrix(dX, dY, f, cone_eps, 9999)
 
-    thresh = 3 * max(np.max(squareform(dX)), np.max(squareform(dY)))
+    max_edge_length = 3 * max(np.max(squareform(dX)), np.max(squareform(dY)))
 
-    dgm_X = ripser(squareform(dX), distance_matrix=True, maxdim=maxdim, thresh=thresh)["dgms"]
-    dgm_Y = ripser(squareform(dY), distance_matrix=True, maxdim=maxdim, thresh=thresh)["dgms"]
-    dgm_cone = ripser(D, maxdim=maxdim, distance_matrix=True, thresh=thresh)["dgms"]
+    dgm_X, pairs_X, simpl2dist_X = gudhi_rutine(
+        squareform(dX), maxdim, max_edge_length)
+    
+    dgm_Y, pairs_Y, simpl2dist_Y = gudhi_rutine(
+        squareform(dY), maxdim, max_edge_length)
+    
+    dgm_cone, pairs_cone, simpl2dist_cone = gudhi_rutine(
+        D, maxdim, max_edge_length)
 
     dgm_coker, dgm_ker, missing = kercoker_bars(
         dgm_cone, dgm_X, dgm_Y, cone_eps, tol)
     if return_extra:
         return dgm_coker, dgm_ker, dgm_cone, dgm_X, dgm_Y, D, missing
     return dgm_coker, dgm_ker, dgm_cone, dgm_X, dgm_Y
+

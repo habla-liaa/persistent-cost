@@ -196,7 +196,7 @@ function handleKeyboardNavigation(event) {
     if (!appState.currentResult) return;
     
     // Obtener métodos disponibles (excluir 'cylinder' method, solo mostrar cone y cone2)
-    const methods = ['cone', 'cone2'].filter(m => 
+    const methods = ['cone', 'cone2', 'cone_gd'].filter(m => 
         appState.currentResult[m] && !appState.currentResult[m].error
     );
     

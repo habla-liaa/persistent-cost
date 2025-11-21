@@ -245,3 +245,57 @@ def htr(points = None, distance_matrix = None, threshold=None, maxdim=None):
     births, deaths, dims = births_and_deaths(R, M, eps, maxdim)
 
     return births, deaths, dims
+
+
+
+def conematrix_blocks(DX, DY, DY_fy, eps):
+    n = len(DX)
+    m = len(DY)
+
+    D = np.zeros((n + m + 1, n + m + 1))
+    D[0:n, 0:n] = DX
+    D[n: n + m, n: n + m] = DY
+
+    D[0:n, n: n + m] = DY_fy
+    D[n: n + m, 0:n] = DY_fy.T
+
+    R = np.inf
+    # R = max(DX.max(), DY_fy[~np.isinf(DY_fy)].max()) + 1 #instead of np.inf
+
+    D[n + m, n: n + m] = R
+    D[n: n + m, n + m] = R
+
+    D[n + m, :n] = eps
+    D[:n, n + m] = eps
+
+    return D
+
+
+def conematrix(dX, dY, f, cone_eps=0.0, max_value=np.inf):
+
+    n = matrix_size_from_condensed(dX)
+    m = matrix_size_from_condensed(dY)
+    f = np.array(f)
+
+    DY_fy = np.ones((n, m), dtype=float) * max_value
+
+    # dY_fy = d(f(x_i),y_j) para todo i,j
+    indices = np.indices((n, m))
+    i = indices[0].flatten()
+    j = indices[1].flatten()
+    f_i = f[i]
+
+    ijs = [(ii, jj) for ii, jj in zip(i, j) if jj in f_i]
+    i, j = zip(*ijs)
+    i = np.array(i, dtype=int)
+    j = np.array(j, dtype=int)
+
+    f_i = f[i]
+
+    DY_fy[i, j] = squareform(dY)[f_i, j]
+
+    # dX     DY_fy
+    # DY_fy  dY
+    D = conematrix_blocks(squareform(dX), squareform(dY), DY_fy, cone_eps)
+    return D
+
