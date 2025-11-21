@@ -152,7 +152,6 @@ Thumbs.db
 *.h5
 *.hdf5
 output/
-results/
 data/raw/
 data/processed/
 figures/
