@@ -195,8 +195,8 @@ function handleKeyboardNavigation(event) {
     // Solo si hay un resultado cargado
     if (!appState.currentResult) return;
     
-    // Obtener métodos disponibles
-    const methods = ['cone', 'cone2', 'cylinder'].filter(m => 
+    // Obtener métodos disponibles (excluir 'cylinder' method, solo mostrar cone y cone2)
+    const methods = ['cone', 'cone2'].filter(m => 
         appState.currentResult[m] && !appState.currentResult[m].error
     );
     
@@ -430,17 +430,18 @@ function renderResult(result) {
 }
 
 function generateMethodTabs(result) {
-    const methods = ['cone', 'cone2', 'cylinder'].filter(m => result[m] && !result[m].error);
+    // Solo mostrar cone y cone2, no cylinder method
+    const methods = ['cone', 'cone2'].filter(m => result[m] && !result[m].error);
     return methods.map(method => `
         <button class="method-tab ${method === appState.currentMethod ? 'active' : ''}" 
                 data-method="${method}">
             ${method.toUpperCase()}
-        </button>
-    `).join('');
+        </button>`).join('');
 }
 
 function generateMethodContents(result) {
-    const methods = ['cone', 'cone2', 'cylinder'].filter(m => result[m] && !result[m].error);
+    // Solo mostrar cone y cone2, no cylinder method
+    const methods = ['cone', 'cone2'].filter(m => result[m] && !result[m].error);
     return methods.map(method => {
         const methodData = result[method];
         return `
@@ -455,16 +456,20 @@ function generateMethodContents(result) {
 function generateDiagramsGrid(methodData, method) {
     let html = '';
     
-    // Primera fila: Nubes de puntos X e Y (si existen)
+    // Botón para abrir modal de nubes de puntos
     if (methodData.X && methodData.Y) {
-        html += '<h3 style="margin: 20px 0 10px 0; color: #2c3e50; font-size: 1.1em;">Nubes de Puntos</h3>';
-        html += '<div class="diagrams-grid pointclouds-row">';
-        html += generatePointCloudCard(methodData.X, 'Espacio X', `${method}-pointcloud-X`);
-        html += generatePointCloudCard(methodData.Y, 'Espacio Y', `${method}-pointcloud-Y`);
-        html += '</div>';
+        const dimX = methodData.X[0] ? methodData.X[0].length : 0;
+        const dimY = methodData.Y[0] ? methodData.Y[0].length : 0;
+        if ((dimX === 2 || dimX === 3) && (dimY === 2 || dimY === 3)) {
+            html += '<div style="margin: 20px 0; text-align: center;">';
+            html += `<a class="pointcloud-link" onclick="openPointCloudModal('${method}')">`;
+            html += `📊 Ver Nubes de Puntos (X: ${dimX}D, Y: ${dimY}D)`;
+            html += '</a>';
+            html += '</div>';
+        }
     }
     
-    // Segunda fila: X, Y, Cylinder
+    // Primera fila: X, Y, Cylinder
     html += '<h3 style="margin: 20px 0 10px 0; color: #2c3e50; font-size: 1.1em;">Diagramas de Persistencia</h3>';
     html += '<div class="diagrams-grid persistence-row">';
     html += generateDiagramCard({ key: 'dgm_X', title: 'Espacio X', id: `${method}-X` }, methodData);
@@ -472,14 +477,14 @@ function generateDiagramsGrid(methodData, method) {
     html += generateDiagramCard({ key: 'dgm_cylinder', title: 'Cilindro', id: `${method}-cylinder` }, methodData);
     html += '</div>';
     
-    // Tercera fila: Cone, Ker, Coker
+    // Segunda fila: Cone, Ker, Coker
     html += '<div class="diagrams-grid persistence-row">';
     html += generateDiagramCard({ key: 'dgm_cone', title: 'Cono', id: `${method}-cone` }, methodData);
     html += generateDiagramCard({ key: 'dgm_ker', title: 'Kernel', id: `${method}-ker` }, methodData);
     html += generateDiagramCard({ key: 'dgm_coker', title: 'Cokernel', id: `${method}-coker` }, methodData);
     html += '</div>';
     
-    // Cuarta fila: Missing (si existe)
+    // Tercera fila: Missing (si existe)
     if (methodData.missing && methodData.missing.length > 0) {
         html += '<div class="diagrams-grid missing-row">';
         html += generateDiagramCard({ key: 'missing', title: 'Missing', id: `${method}-missing` }, methodData);
@@ -649,7 +654,7 @@ function drawAllDiagrams(result, method) {
         drawDiagram(`${method}-cone`, methodData.dgm_cone, globalRange);
         drawDiagram(`${method}-ker`, methodData.dgm_ker, globalRange);
         drawDiagram(`${method}-coker`, methodData.dgm_coker, globalRange);
-        if (methodData.missing) {
+        if (methodData.missing && methodData.missing.length > 0) {
             drawDiagram(`${method}-missing`, methodData.missing, globalRange);
         }
     }, 10);
