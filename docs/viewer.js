@@ -195,8 +195,8 @@ function handleKeyboardNavigation(event) {
     // Solo si hay un resultado cargado
     if (!appState.currentResult) return;
     
-    // Obtener métodos disponibles (excluir 'cylinder' method, solo mostrar cone y cone2)
-    const methods = ['cone', 'cone2', 'cone_gd'].filter(m => 
+    // Obtener métodos disponibles (excluir 'cylinder' method)
+    const methods = ['cone', 'cone2', 'cone_htr', 'cone_gd'].filter(m => 
         appState.currentResult[m] && !appState.currentResult[m].error
     );
     
@@ -430,8 +430,8 @@ function renderResult(result) {
 }
 
 function generateMethodTabs(result) {
-    // Solo mostrar cone, cone2 y cone_gd, no cylinder method
-    const methods = ['cone', 'cone2', 'cone_gd'].filter(m => result[m] && !result[m].error);
+    // Solo mostrar cone, cone2, cone_htr y cone_gd, no cylinder method
+    const methods = ['cone', 'cone2', 'cone_htr', 'cone_gd'].filter(m => result[m] && !result[m].error);
     return methods.map(method => `
         <button class="method-tab ${method === appState.currentMethod ? 'active' : ''}" 
                 data-method="${method}">
@@ -440,8 +440,8 @@ function generateMethodTabs(result) {
 }
 
 function generateMethodContents(result) {
-    // Solo mostrar cone, cone2 y cone_gd, no cylinder method
-    const methods = ['cone', 'cone2', 'cone_gd'].filter(m => result[m] && !result[m].error);
+    // Solo mostrar cone, cone2, cone_htr y cone_gd, no cylinder method
+    const methods = ['cone', 'cone2', 'cone_htr', 'cone_gd'].filter(m => result[m] && !result[m].error);
     return methods.map(method => {
         const methodData = result[method];
         return `

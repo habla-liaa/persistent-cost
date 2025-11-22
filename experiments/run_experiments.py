@@ -286,7 +286,7 @@ def save_results(results, output_dir='results'):
 
 
 def main(
-    n: tuple = (20, 50),
+    n: tuple = (20,),
     dim: int = 2,
     maxdim: int = 2,
     threshold: float = 3.0,
