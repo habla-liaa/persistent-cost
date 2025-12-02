@@ -16,7 +16,8 @@ function saveStateToLocalStorage() {
             loadedResults: appState.loadedResults,
             currentMethod: appState.currentMethod,
             selectedExperiment: document.getElementById('experimentSelect')?.value,
-            selectedN: document.getElementById('nSelect')?.value
+            selectedN: document.getElementById('nSelect')?.value,
+            selectedEps: document.getElementById('epsSelect')?.value
         };
         localStorage.setItem('persistentCostViewerState', JSON.stringify(state));
     } catch (e) {
@@ -43,10 +44,16 @@ function loadStateFromLocalStorage() {
                 updateNSelect();
                 
                 if (state.selectedN) {
-                    setTimeout(() => {
-                        document.getElementById('nSelect').value = state.selectedN;
-                        displaySelectedResult();
-                    }, 100);
+                    document.getElementById('nSelect').value = state.selectedN;
+                    updateEpsSelect();
+                    
+                    if (state.selectedEps !== undefined) {
+                        setTimeout(() => {
+                            const epsSelect = document.getElementById('epsSelect');
+                            epsSelect.value = state.selectedEps;
+                            displaySelectedResult();
+                        }, 100);
+                    }
                 }
             }
             
@@ -90,9 +97,11 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const experimentSelect = document.getElementById('experimentSelect');
     const nSelect = document.getElementById('nSelect');
+    const epsSelect = document.getElementById('epsSelect');
     
     experimentSelect.addEventListener('change', updateNSelect);
-    nSelect.addEventListener('change', displaySelectedResult);
+    nSelect.addEventListener('change', updateEpsSelect);
+    epsSelect.addEventListener('change', displaySelectedResult);
     
     // Listener para el toggle de persistencia
     showPersistenceToggle.addEventListener('change', togglePersistenceMetrics);
@@ -130,6 +139,8 @@ async function loadResultsFromGitHub() {
         const jsonFiles = files.filter(file => 
             file.type === 'file' && file.name.endsWith('.json')
         );
+        
+        console.log('Archivos encontrados en GitHub:', jsonFiles.map(f => f.name));
         
         if (jsonFiles.length === 0) {
             showError('No se encontraron archivos JSON en el repositorio');
@@ -266,6 +277,9 @@ function updateStatusBar() {
 // Manejo de carga de carpeta local
 function handleFolderSelect(event) {
     const files = Array.from(event.target.files).filter(f => f.name.endsWith('.json'));
+    
+    console.log('Archivos encontrados en carpeta local:', files.map(f => f.name));
+    
     if (files.length === 0) {
         showError('No se encontraron archivos JSON en la carpeta');
         return;
@@ -327,17 +341,20 @@ function populateSelectors() {
 function updateNSelect() {
     const experimentSelect = document.getElementById('experimentSelect');
     const nSelect = document.getElementById('nSelect');
+    const epsSelect = document.getElementById('epsSelect');
     const selectedExp = experimentSelect.value;
     
     if (!selectedExp) {
         nSelect.innerHTML = '<option value="">Seleccionar n...</option>';
         nSelect.disabled = true;
+        epsSelect.style.display = 'none';
         return;
     }
     
-    const nValues = appState.loadedResults
+    // Obtener valores de n únicos para este experimento
+    const nValues = [...new Set(appState.loadedResults
         .filter(r => r.experiment_name === selectedExp)
-        .map(r => r.n)
+        .map(r => r.n))]
         .sort((a, b) => a - b);
     
     nSelect.innerHTML = '<option value="">Seleccionar n...</option>';
@@ -352,6 +369,51 @@ function updateNSelect() {
     // Seleccionar automáticamente el n más pequeño
     if (nValues.length > 0) {
         nSelect.value = nValues[0];
+        updateEpsSelect();
+    }
+    
+    // Guardar estado
+    saveStateToLocalStorage();
+}
+
+function updateEpsSelect() {
+    const experimentSelect = document.getElementById('experimentSelect');
+    const nSelect = document.getElementById('nSelect');
+    const epsSelect = document.getElementById('epsSelect');
+    const selectedExp = experimentSelect.value;
+    const selectedN = parseInt(nSelect.value);
+    
+    if (!selectedExp || !selectedN) {
+        epsSelect.innerHTML = '<option value="">Seleccionar ε...</option>';
+        epsSelect.disabled = true;
+        return;
+    }
+    
+    // Filtrar resultados por experimento y n
+    const matchingResults = appState.loadedResults.filter(
+        r => r.experiment_name === selectedExp && r.n === selectedN
+    );
+    
+    // Extraer valores de eps (siempre existe, default es 0)
+    const epsValues = [...new Set(matchingResults.map(r => r.eps ?? 0))].sort((a, b) => a - b);
+    
+    // Actualizar selector de eps
+    epsSelect.disabled = false;
+    epsSelect.innerHTML = '';
+    
+    if (epsValues.length === 0) {
+        epsSelect.innerHTML = '<option value="">Sin resultados</option>';
+        epsSelect.disabled = true;
+    } else {
+        epsValues.forEach(eps => {
+            const option = document.createElement('option');
+            option.value = eps;
+            option.textContent = `ε = ${eps}`;
+            epsSelect.appendChild(option);
+        });
+        
+        // Seleccionar el primer valor automáticamente
+        epsSelect.value = epsValues[0];
         displaySelectedResult();
     }
     
@@ -362,14 +424,20 @@ function updateNSelect() {
 function displaySelectedResult() {
     const experimentSelect = document.getElementById('experimentSelect');
     const nSelect = document.getElementById('nSelect');
+    const epsSelect = document.getElementById('epsSelect');
     const selectedExp = experimentSelect.value;
     const selectedN = parseInt(nSelect.value);
+    const selectedEps = parseFloat(epsSelect.value);
     
-    if (!selectedExp || !selectedN) return;
+    if (!selectedExp || !selectedN || isNaN(selectedEps)) return;
     
-    const result = appState.loadedResults.find(
-        r => r.experiment_name === selectedExp && r.n === selectedN
-    );
+    // Buscar resultado que coincida con experimento, n y eps
+    const result = appState.loadedResults.find(r => {
+        const matchExp = r.experiment_name === selectedExp;
+        const matchN = r.n === selectedN;
+        const matchEps = (r.eps ?? 0) === selectedEps;
+        return matchExp && matchN && matchEps;
+    });
     
     if (result) {
         appState.currentResult = result;
@@ -402,6 +470,18 @@ function renderResult(result) {
                     <h3>Lipschitz</h3>
                     <p>${result.lipschitz_constant.toFixed(4)}</p>
                 </div>
+                ${result.eps !== undefined ? `
+                <div class="info-card">
+                    <h3>Epsilon (ε)</h3>
+                    <p>${result.eps}</p>
+                </div>
+                ` : ''}
+                ${result.seed !== undefined ? `
+                <div class="info-card">
+                    <h3>Seed</h3>
+                    <p>${result.seed}</p>
+                </div>
+                ` : ''}
             </div>
             
             <div class="method-tabs">
