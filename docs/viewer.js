@@ -147,8 +147,8 @@ async function loadResultsFromGitHub() {
             return;
         }
         
-        // Cargar cada archivo JSON
-        const promises = jsonFiles.map(file => loadJSONFromURL(file.download_url));
+        // Cargar cada archivo JSON (pasando el nombre para extraer eps)
+        const promises = jsonFiles.map(file => loadJSONFromURL(file.download_url, file.name));
         const results = await Promise.all(promises);
         
         appState.loadedResults = results.filter(r => r !== null);
@@ -171,7 +171,7 @@ async function loadResultsFromGitHub() {
     }
 }
 
-async function loadJSONFromURL(url) {
+async function loadJSONFromURL(url, filename = '') {
     try {
         const response = await fetch(url);
         if (!response.ok) {
@@ -182,6 +182,11 @@ async function loadJSONFromURL(url) {
         // Replace "Infinity" with null (which represents infinite bars)
         const sanitizedText = text.replace(/:\s*Infinity/g, ': null');
         const data = JSON.parse(sanitizedText);
+        // Extraer eps del nombre del archivo si no está en el JSON
+        if (data.eps === undefined && filename) {
+            const epsMatch = filename.match(/_eps([\d.]+)/);
+            data.eps = epsMatch ? parseFloat(epsMatch[1]) : 0;
+        }
         return data;
     } catch (error) {
         console.error('Error cargando JSON desde URL:', error);
@@ -297,6 +302,11 @@ function loadFiles(files) {
     
     Promise.all(promises).then(results => {
         appState.loadedResults = results.filter(r => r !== null);
+        console.log('Resultados cargados con eps:', appState.loadedResults.map(r => ({
+            name: r.experiment_name,
+            n: r.n,
+            eps: r.eps
+        })));
         if (appState.loadedResults.length > 0) {
             populateSelectors();
             document.getElementById('resultsSelector').style.display = 'block';
@@ -313,6 +323,11 @@ function loadJSONFile(file) {
         reader.onload = (e) => {
             try {
                 const data = JSON.parse(e.target.result);
+                // Extraer eps del nombre del archivo si no está en el JSON
+                if (data.eps === undefined) {
+                    const epsMatch = file.name.match(/_eps([\d.]+)/);
+                    data.eps = epsMatch ? parseFloat(epsMatch[1]) : 0;
+                }
                 resolve(data);
             } catch (error) {
                 console.error('Error parseando JSON:', error);
