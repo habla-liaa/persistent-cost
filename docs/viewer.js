@@ -29,15 +29,22 @@ function saveStateToLocalStorage() {
 }
 
 function loadStateFromLocalStorage() {
+    console.log('[STORAGE] Intentando cargar estado desde localStorage...');
     try {
         const saved = localStorage.getItem('persistentCostViewerState');
-        if (!saved) return false;
+        if (!saved) {
+            console.log('[STORAGE] No hay estado guardado');
+            return false;
+        }
         
         const state = JSON.parse(saved);
+        console.log('[STORAGE] Estado encontrado - dataSource:', state.dataSource, 'resultados:', state.loadedResults?.length);
+        
         if (state.loadedResults && state.loadedResults.length > 0) {
             appState.loadedResults = state.loadedResults;
             appState.currentMethod = state.currentMethod || 'cone';
             appState.dataSource = state.dataSource || 'github';
+            console.log('[STORAGE] Estado cargado - Método:', appState.currentMethod, 'Source:', appState.dataSource);
             
             updateDataSourceIndicator();
             populateSelectors();
@@ -45,6 +52,7 @@ function loadStateFromLocalStorage() {
             
             // Restaurar selecciones
             if (state.selectedExperiment) {
+                console.log('[STORAGE] Restaurando selección - Exp:', state.selectedExperiment, 'N:', state.selectedN, 'Eps:', state.selectedEps);
                 document.getElementById('experimentSelect').value = state.selectedExperiment;
                 updateNSelect();
                 
@@ -60,17 +68,26 @@ function loadStateFromLocalStorage() {
                         }, 100);
                     }
                 }
+            } else {
+                // Si no hay selección guardada, seleccionar el primer experimento
+                console.log('[STORAGE] No hay selección guardada, seleccionando primer experimento');
+                const experiments = [...new Set(appState.loadedResults.map(r => r.experiment_name))].sort();
+                if (experiments.length > 0) {
+                    document.getElementById('experimentSelect').value = experiments[0];
+                    updateNSelect();
+                }
             }
             
             return true;
         }
     } catch (e) {
-        console.warn('No se pudo cargar el estado:', e);
+        console.warn('[STORAGE] Error cargando estado:', e);
     }
     return false;
 }
 
 function updateDataSourceIndicator() {
+    console.log('[UI] updateDataSourceIndicator - source:', appState.dataSource, 'count:', appState.loadedResults.length);
     const indicator = document.getElementById('dataSourceIndicator');
     if (!indicator) return;
     
@@ -108,6 +125,7 @@ function clearCache() {
 
 // Inicialización
 document.addEventListener('DOMContentLoaded', () => {
+    console.log('[INIT] DOMContentLoaded - Iniciando aplicación');
     const folderInput = document.getElementById('folderInput');
     const clearCacheBtn = document.getElementById('clearCacheBtn');
     const showPersistenceToggle = document.getElementById('showPersistenceMetrics');
@@ -127,11 +145,13 @@ document.addEventListener('DOMContentLoaded', () => {
     showPersistenceToggle.addEventListener('change', togglePersistenceMetrics);
     
     // Intentar cargar estado guardado
+    console.log('[INIT] Intentando cargar estado desde localStorage...');
     const wasRestored = loadStateFromLocalStorage();
     if (wasRestored) {
+        console.log('[INIT] Estado restaurado desde localStorage');
         showCacheIndicator();
     } else {
-        // Si no hay estado guardado, cargar datos desde GitHub
+        console.log('[INIT] No hay estado guardado, cargando desde GitHub...');
         loadResultsFromGitHub();
     }
     
@@ -141,16 +161,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Cargar resultados desde GitHub
 async function loadResultsFromGitHub() {
+    console.log('[GITHUB] Iniciando carga desde GitHub...');
     const content = document.getElementById('content');
     content.innerHTML = '<div class="loading">Cargando resultados desde GitHub...</div>';
     
     // Crear AbortController para poder cancelar
     appState.githubAbortController = new AbortController();
     const signal = appState.githubAbortController.signal;
+    console.log('[GITHUB] AbortController creado');
     
     try {
         // URL de la API de GitHub para listar contenidos de la carpeta
         const apiUrl = 'https://api.github.com/repos/habla-liaa/persistent-cost/contents/docs/results';
+        console.log('[GITHUB] Fetching:', apiUrl);
         
         const response = await fetch(apiUrl, { signal });
         if (!response.ok) {
@@ -164,24 +187,33 @@ async function loadResultsFromGitHub() {
             file.type === 'file' && file.name.endsWith('.json')
         );
         
-        console.log('Archivos encontrados en GitHub:', jsonFiles.map(f => f.name));
+        console.log('[GITHUB] Archivos JSON encontrados:', jsonFiles.length, jsonFiles.map(f => f.name));
         
         if (jsonFiles.length === 0) {
+            console.log('[GITHUB] ERROR: No se encontraron archivos JSON');
             showError('No se encontraron archivos JSON en el repositorio');
             return;
         }
         
         // Cargar cada archivo JSON (pasando el nombre para extraer eps)
+        console.log('[GITHUB] Cargando', jsonFiles.length, 'archivos JSON...');
         const promises = jsonFiles.map(file => loadJSONFromURL(file.download_url, file.name, signal));
         const results = await Promise.all(promises);
+        console.log('[GITHUB] Archivos cargados:', results.filter(r => r !== null).length, 'exitosos');
         
         // Verificar si fue cancelado antes de actualizar el estado
-        if (signal.aborted) return;
+        if (signal.aborted) {
+            console.log('[GITHUB] Carga abortada, no actualizando estado');
+            return;
+        }
         
-        appState.loadedResults = results.filter(r => r !== null);
+        // Filtrar resultados nulos y sin experiment_name (como summary.json)
+        appState.loadedResults = results.filter(r => r !== null && r.experiment_name);
         appState.dataSource = 'github';
+        console.log('[GITHUB] Resultados válidos:', appState.loadedResults.length);
         
         if (appState.loadedResults.length > 0) {
+            console.log('[GITHUB] Actualizando UI...');
             updateDataSourceIndicator();
             populateSelectors();
             document.getElementById('resultsSelector').style.display = 'block';
@@ -319,16 +351,21 @@ function updateStatusBar() {
 
 // Manejo de carga de carpeta local
 function handleFolderSelect(event) {
+    console.log('[LOCAL] Usuario seleccionó carpeta local');
+    
     // Cancelar carga de GitHub si está en progreso
     if (appState.githubAbortController) {
+        console.log('[LOCAL] Cancelando carga de GitHub en progreso...');
         appState.githubAbortController.abort();
         appState.githubAbortController = null;
-        console.log('Carga de GitHub cancelada - usuario eligió cargar local');
+        console.log('[LOCAL] Carga de GitHub cancelada');
     }
     
-    const files = Array.from(event.target.files).filter(f => f.name.endsWith('.json'));
+    const allFiles = Array.from(event.target.files);
+    console.log('[LOCAL] Total archivos en carpeta:', allFiles.length);
+    const files = allFiles.filter(f => f.name.endsWith('.json'));
     
-    console.log('Archivos encontrados en carpeta local:', files.map(f => f.name));
+    console.log('[LOCAL] Archivos JSON encontrados:', files.length, files.map(f => f.name));
     
     if (files.length === 0) {
         showError('No se encontraron archivos JSON en la carpeta');
@@ -338,6 +375,7 @@ function handleFolderSelect(event) {
 }
 
 function loadFiles(files) {
+    console.log('[LOCAL] loadFiles: Iniciando carga de', files.length, 'archivos');
     appState.loadedResults = [];
     const promises = [];
     
@@ -345,10 +383,14 @@ function loadFiles(files) {
         promises.push(loadJSONFile(file));
     }
     
+    console.log('[LOCAL] Esperando que todos los archivos se carguen...');
     Promise.all(promises).then(results => {
-        appState.loadedResults = results.filter(r => r !== null);
+        console.log('[LOCAL] Todos los archivos procesados');
+        // Filtrar resultados nulos y sin experiment_name (como summary.json)
+        appState.loadedResults = results.filter(r => r !== null && r.experiment_name);
         appState.dataSource = 'local';
-        console.log('Resultados cargados con eps:', appState.loadedResults.map(r => ({
+        console.log('[LOCAL] Resultados válidos:', appState.loadedResults.length);
+        console.log('[LOCAL] Resultados con eps:', appState.loadedResults.map(r => ({
             name: r.experiment_name,
             n: r.n,
             eps: r.eps
@@ -388,8 +430,10 @@ function loadJSONFile(file) {
 
 // Poblar selectores
 function populateSelectors() {
+    console.log('[UI] populateSelectors: Poblando selectores...');
     const experimentSelect = document.getElementById('experimentSelect');
     const experiments = [...new Set(appState.loadedResults.map(r => r.experiment_name))].sort();
+    console.log('[UI] Experimentos encontrados:', experiments);
     
     experimentSelect.innerHTML = '<option value="">Seleccionar experimento...</option>';
     experiments.forEach(exp => {
@@ -401,10 +445,12 @@ function populateSelectors() {
 }
 
 function updateNSelect() {
+    console.log('[UI] updateNSelect llamado');
     const experimentSelect = document.getElementById('experimentSelect');
     const nSelect = document.getElementById('nSelect');
     const epsSelect = document.getElementById('epsSelect');
     const selectedExp = experimentSelect.value;
+    console.log('[UI] Experimento seleccionado:', selectedExp);
     
     if (!selectedExp) {
         nSelect.innerHTML = '<option value="">Seleccionar n...</option>';
@@ -439,11 +485,13 @@ function updateNSelect() {
 }
 
 function updateEpsSelect() {
+    console.log('[UI] updateEpsSelect llamado');
     const experimentSelect = document.getElementById('experimentSelect');
     const nSelect = document.getElementById('nSelect');
     const epsSelect = document.getElementById('epsSelect');
     const selectedExp = experimentSelect.value;
     const selectedN = parseInt(nSelect.value);
+    console.log('[UI] Experimento:', selectedExp, 'N:', selectedN);
     
     if (!selectedExp || !selectedN) {
         epsSelect.innerHTML = '<option value="">Seleccionar ε...</option>';
@@ -455,9 +503,11 @@ function updateEpsSelect() {
     const matchingResults = appState.loadedResults.filter(
         r => r.experiment_name === selectedExp && r.n === selectedN
     );
+    console.log('[UI] Resultados que coinciden:', matchingResults.length);
     
     // Extraer valores de eps (siempre existe, default es 0)
     const epsValues = [...new Set(matchingResults.map(r => r.eps ?? 0))].sort((a, b) => a - b);
+    console.log('[UI] Valores de eps encontrados:', epsValues);
     
     // Actualizar selector de eps
     epsSelect.disabled = false;
@@ -484,14 +534,19 @@ function updateEpsSelect() {
 }
 
 function displaySelectedResult() {
+    console.log('[UI] displaySelectedResult llamado');
     const experimentSelect = document.getElementById('experimentSelect');
     const nSelect = document.getElementById('nSelect');
     const epsSelect = document.getElementById('epsSelect');
     const selectedExp = experimentSelect.value;
     const selectedN = parseInt(nSelect.value);
     const selectedEps = parseFloat(epsSelect.value);
+    console.log('[UI] Buscando resultado - Exp:', selectedExp, 'N:', selectedN, 'Eps:', selectedEps);
     
-    if (!selectedExp || !selectedN || isNaN(selectedEps)) return;
+    if (!selectedExp || !selectedN || isNaN(selectedEps)) {
+        console.log('[UI] displaySelectedResult: Parámetros incompletos, saliendo');
+        return;
+    }
     
     // Buscar resultado que coincida con experimento, n y eps
     const result = appState.loadedResults.find(r => {
@@ -502,9 +557,13 @@ function displaySelectedResult() {
     });
     
     if (result) {
+        console.log('[UI] Resultado encontrado:', result.experiment_name, 'n='+result.n, 'eps='+result.eps);
         appState.currentResult = result;
         renderResult(result);
         saveStateToLocalStorage();
+    } else {
+        console.log('[UI] ERROR: No se encontró resultado para los parámetros dados');
+        console.log('[UI] Buscando en', appState.loadedResults.length, 'resultados disponibles');
     }
 }
 
