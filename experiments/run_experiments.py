@@ -116,6 +116,14 @@ def execute_cone_algorithm(algorithm_name, pipeline_func, dX, dY, f, X, Y, maxdi
     
     # Calcular cylinder_dgm para comparación
     cylinder_dgm_ = cylinder_dgm(dX, dY, f, maxdim)
+
+    # Sort diagrams lexicográficamente
+    dgm_coker = sort_diagram(dgm_coker)
+    dgm_ker = sort_diagram(dgm_ker)
+    dgm_cone = sort_diagram(dgm_cone)
+    cylinder_dgm_ = sort_diagram(cylinder_dgm_)
+    dgm_X = sort_diagram(dgm_X)
+    dgm_Y = sort_diagram(dgm_Y)
     
     # Formatear resultados
     result_dict = {
@@ -136,8 +144,19 @@ def execute_cone_algorithm(algorithm_name, pipeline_func, dX, dY, f, X, Y, maxdi
     
     return result_dict
 
+def sort_diagram(dgm):
+    """
+    Ordena un diagrama de persistencia lexicográficamente por (dim, birth, death).
+    """
+    sorted_dgm = []
+    for dim in range(len(dgm)):
+        bars = dgm[dim]
+        # Ordenar por nacimiento, luego por muerte
+        sorted_bars = sorted(bars, key=lambda x: (x[0], x[1]))
+        sorted_dgm.append(sorted_bars)
+    return sorted_dgm
 
-def run_single_experiment(experiment_name, n, dim=2, threshold=3.0, maxdim=2, seed=42, verbose=True,
+def run_single_experiment(experiment_name, n, dim=2, threshold=3.0, maxdim=2,cone_eps=0.0, seed=42, verbose=True,
                           run_cone=True, run_cone2=True, run_htr=True, run_cone_gd=True, run_cylinder=True):
     """
     Ejecuta un experimento individual con los métodos disponibles.
@@ -197,30 +216,31 @@ def run_single_experiment(experiment_name, n, dim=2, threshold=3.0, maxdim=2, se
         'X_shape': X.shape,
         'Y_shape': Y.shape,        
         'seed': seed,
+        'cone_eps': cone_eps,
     }
 
     # Ejecutar cone (método 1)
     if run_cone:
         results['cone'] = execute_cone_algorithm(
-            'cone', cone_pipeline, dX, dY, f, X, Y, maxdim, 0.0, threshold, verbose
+            'cone', cone_pipeline, dX, dY, f, X, Y, maxdim, cone_eps, threshold, verbose
         )
 
     # Ejecutar cone2 (método 2)
     if run_cone2:
         results['cone2'] = execute_cone_algorithm(
-            'cone2', cone2_pipeline, dX, dY, f, X, Y, maxdim, 0.0, threshold, verbose
+            'cone2', cone2_pipeline, dX, dY, f, X, Y, maxdim, cone_eps, threshold, verbose
         )
 
     # Ejecutar cone_htr (método con HTR)
     if run_htr:
         results['cone_htr'] = execute_cone_algorithm(
-            'cone_htr', cone_pipeline_htr, dX, dY, f, X, Y, maxdim, 0.0, threshold, verbose
+            'cone_htr', cone_pipeline_htr, dX, dY, f, X, Y, maxdim, cone_eps, threshold, verbose
         )
 
     # Ejecutar cone_gd (método con Gudhi)
     if run_cone_gd:
         results['cone_gd'] = execute_cone_algorithm(
-            'cone_gd', cone_gd_pipeline, dX, dY, f, X, Y, maxdim, 0.0, threshold, verbose
+            'cone_gd', cone_gd_pipeline, dX, dY, f, X, Y, maxdim, cone_eps, threshold, verbose
         )
 
     # Ejecutar cylinder
@@ -271,7 +291,7 @@ def save_results(results, output_dir='results'):
     n = results['n']
 
     # Nombre base del archivo
-    base_name = f"{experiment_name}_n{n}_seed{results.get('seed', 'NA')}"
+    base_name = f"{experiment_name}_n{n}_seed{results.get('seed', '')}_eps{results.get('cone_eps', 0)}"
 
     # Guardar JSON (convertir Infinity a null para compatibilidad)
     json_path = output_path / f"{base_name}.json"
@@ -286,11 +306,12 @@ def save_results(results, output_dir='results'):
 
 
 def main(
-    n: tuple = (20,),
+    n: tuple = (20,50),
     dim: int = 2,
     maxdim: int = 2,
     threshold: float = 3.0,
     seed: int = 42,
+    cone_eps: float = 0.0,
     experiments: tuple = None,
     cone: bool = True,
     cone2: bool = True,
@@ -358,6 +379,8 @@ def main(
     print(f"  - cylinder: {cylinder}")
     print(f"\nExperimentos a ejecutar: {list(experiments_to_run.keys())}")
     print(f"Valores de n: {n_values}\n")
+    print(f"Valor de cone_eps: {cone_eps}\n")
+    print(f"Semilla: {seed}\n")
 
     # Ejecutar todos los experimentos
     all_results = []
@@ -374,6 +397,7 @@ def main(
                 dim=dim,
                 threshold=threshold,
                 maxdim=maxdim,
+                cone_eps=cone_eps,
                 seed=seed,
                 verbose=True,
                 run_cone=cone,

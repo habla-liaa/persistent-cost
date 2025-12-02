@@ -248,7 +248,7 @@ def htr(points = None, distance_matrix = None, threshold=None, maxdim=None):
 
 
 
-def conematrix_blocks(DX, DY, DY_fy, eps):
+def conematrix_blocks(DX, DY, DY_fy, eps, max_value=np.inf):
     n = len(DX)
     m = len(DY)
 
@@ -259,11 +259,8 @@ def conematrix_blocks(DX, DY, DY_fy, eps):
     D[0:n, n: n + m] = DY_fy
     D[n: n + m, 0:n] = DY_fy.T
 
-    R = np.inf
-    # R = max(DX.max(), DY_fy[~np.isinf(DY_fy)].max()) + 1 #instead of np.inf
-
-    D[n + m, n: n + m] = R
-    D[n: n + m, n + m] = R
+    D[n + m, n: n + m] = max_value
+    D[n: n + m, n + m] = max_value
 
     D[n + m, :n] = eps
     D[:n, n + m] = eps
@@ -296,6 +293,6 @@ def conematrix(dX, dY, f, cone_eps=0.0, max_value=np.inf):
 
     # dX     DY_fy
     # DY_fy  dY
-    D = conematrix_blocks(squareform(dX), squareform(dY), DY_fy, cone_eps)
+    D = conematrix_blocks(squareform(dX), squareform(dY), DY_fy, cone_eps, max_value)
     return D
 
