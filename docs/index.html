@@ -131,6 +131,39 @@
             text-align: center;
         }
         
+        .data-source-indicator {
+            padding: 8px 0;
+        }
+        
+        .source-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 3px;
+            font-size: 0.85em;
+            font-weight: 500;
+        }
+        
+        .source-github {
+            background: #24292e;
+            color: white;
+        }
+        
+        .source-local {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .source-loading {
+            background: #95a5a6;
+            color: white;
+        }
+        
+        .source-count {
+            opacity: 0.8;
+            font-weight: 400;
+            margin-left: 5px;
+        }
+        
         @keyframes fadeIn {
             from { opacity: 0; }
             to { opacity: 1; }
@@ -658,14 +691,23 @@
             </header>
 
             <div class="controls">
-                <div class="control-section">
-                    <label class="control-label">Cargar Datos</label>
-                    <div class="file-input-wrapper">
+                <div class="control-section" id="dataSourceSection">
+                    <label class="control-label">Datos</label>
+                    <div id="dataSourceIndicator" class="data-source-indicator">
+                        <span class="source-badge source-loading">Cargando...</span>
+                    </div>
+                    <div class="file-input-wrapper" style="margin-top: 10px;">
                         <label for="folderInput" class="file-input-label">
                             Cargar Carpeta Local
                         </label>
                         <input type="file" id="folderInput" webkitdirectory directory multiple style="display: none;">
                     </div>
+                    <button class="clear-cache-btn" id="clearCacheBtn" title="Limpiar datos guardados" style="margin-top: 8px;">
+                        Limpiar Caché
+                    </button>
+                    <span id="cacheIndicator" style="display: none;" class="cache-indicator">
+                        Datos restaurados
+                    </span>
                 </div>
                 
                 <div class="control-section" id="resultsSelector" style="display: none;">
@@ -691,15 +733,6 @@
                             <span>Mostrar métricas de persistencia</span>
                         </label>
                     </div>
-                </div>
-                
-                <div class="control-section">
-                    <button class="clear-cache-btn" id="clearCacheBtn" title="Limpiar datos guardados">
-                        Limpiar Caché
-                    </button>
-                    <span id="cacheIndicator" style="display: none;" class="cache-indicator">
-                        Datos restaurados
-                    </span>
                 </div>
             </div>
         </aside>

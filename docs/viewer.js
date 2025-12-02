@@ -2,7 +2,9 @@
 const appState = {
     loadedResults: [],
     currentResult: null,
-    currentMethod: 'cone'
+    currentMethod: 'cone',
+    dataSource: null,  // 'github' o 'local'
+    githubAbortController: null  // Para cancelar carga de GitHub
 };
 
 // Colores por dimensión (paleta científica sobria)
@@ -15,6 +17,7 @@ function saveStateToLocalStorage() {
         const state = {
             loadedResults: appState.loadedResults,
             currentMethod: appState.currentMethod,
+            dataSource: appState.dataSource,
             selectedExperiment: document.getElementById('experimentSelect')?.value,
             selectedN: document.getElementById('nSelect')?.value,
             selectedEps: document.getElementById('epsSelect')?.value
@@ -34,7 +37,9 @@ function loadStateFromLocalStorage() {
         if (state.loadedResults && state.loadedResults.length > 0) {
             appState.loadedResults = state.loadedResults;
             appState.currentMethod = state.currentMethod || 'cone';
+            appState.dataSource = state.dataSource || 'github';
             
+            updateDataSourceIndicator();
             populateSelectors();
             document.getElementById('resultsSelector').style.display = 'block';
             
@@ -63,6 +68,21 @@ function loadStateFromLocalStorage() {
         console.warn('No se pudo cargar el estado:', e);
     }
     return false;
+}
+
+function updateDataSourceIndicator() {
+    const indicator = document.getElementById('dataSourceIndicator');
+    if (!indicator) return;
+    
+    const count = appState.loadedResults.length;
+    
+    if (appState.dataSource === 'local') {
+        indicator.innerHTML = `<span class="source-badge source-local">Local<span class="source-count">(${count} archivos)</span></span>`;
+    } else if (appState.dataSource === 'github') {
+        indicator.innerHTML = `<span class="source-badge source-github">GitHub<span class="source-count">(${count} archivos)</span></span>`;
+    } else {
+        indicator.innerHTML = `<span class="source-badge source-loading">Cargando...</span>`;
+    }
 }
 
 function showCacheIndicator() {
@@ -124,11 +144,15 @@ async function loadResultsFromGitHub() {
     const content = document.getElementById('content');
     content.innerHTML = '<div class="loading">Cargando resultados desde GitHub...</div>';
     
+    // Crear AbortController para poder cancelar
+    appState.githubAbortController = new AbortController();
+    const signal = appState.githubAbortController.signal;
+    
     try {
         // URL de la API de GitHub para listar contenidos de la carpeta
         const apiUrl = 'https://api.github.com/repos/habla-liaa/persistent-cost/contents/docs/results';
         
-        const response = await fetch(apiUrl);
+        const response = await fetch(apiUrl, { signal });
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -148,12 +172,17 @@ async function loadResultsFromGitHub() {
         }
         
         // Cargar cada archivo JSON (pasando el nombre para extraer eps)
-        const promises = jsonFiles.map(file => loadJSONFromURL(file.download_url, file.name));
+        const promises = jsonFiles.map(file => loadJSONFromURL(file.download_url, file.name, signal));
         const results = await Promise.all(promises);
         
+        // Verificar si fue cancelado antes de actualizar el estado
+        if (signal.aborted) return;
+        
         appState.loadedResults = results.filter(r => r !== null);
+        appState.dataSource = 'github';
         
         if (appState.loadedResults.length > 0) {
+            updateDataSourceIndicator();
             populateSelectors();
             document.getElementById('resultsSelector').style.display = 'block';
             saveStateToLocalStorage();
@@ -166,14 +195,20 @@ async function loadResultsFromGitHub() {
             showError('No se pudieron cargar los resultados desde GitHub');
         }
     } catch (error) {
+        if (error.name === 'AbortError') {
+            console.log('Carga de GitHub cancelada');
+            return;
+        }
         console.error('Error cargando desde GitHub:', error);
         showError(`Error cargando resultados: ${error.message}. Puede cargar archivos locales usando el botón "Cargar Carpeta Local".`);
+    } finally {
+        appState.githubAbortController = null;
     }
 }
 
-async function loadJSONFromURL(url, filename = '') {
+async function loadJSONFromURL(url, filename = '', signal = null) {
     try {
-        const response = await fetch(url);
+        const response = await fetch(url, signal ? { signal } : {});
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -189,6 +224,9 @@ async function loadJSONFromURL(url, filename = '') {
         }
         return data;
     } catch (error) {
+        if (error.name === 'AbortError') {
+            return null;
+        }
         console.error('Error cargando JSON desde URL:', error);
         return null;
     }
@@ -281,6 +319,13 @@ function updateStatusBar() {
 
 // Manejo de carga de carpeta local
 function handleFolderSelect(event) {
+    // Cancelar carga de GitHub si está en progreso
+    if (appState.githubAbortController) {
+        appState.githubAbortController.abort();
+        appState.githubAbortController = null;
+        console.log('Carga de GitHub cancelada - usuario eligió cargar local');
+    }
+    
     const files = Array.from(event.target.files).filter(f => f.name.endsWith('.json'));
     
     console.log('Archivos encontrados en carpeta local:', files.map(f => f.name));
@@ -302,12 +347,14 @@ function loadFiles(files) {
     
     Promise.all(promises).then(results => {
         appState.loadedResults = results.filter(r => r !== null);
+        appState.dataSource = 'local';
         console.log('Resultados cargados con eps:', appState.loadedResults.map(r => ({
             name: r.experiment_name,
             n: r.n,
             eps: r.eps
         })));
         if (appState.loadedResults.length > 0) {
+            updateDataSourceIndicator();
             populateSelectors();
             document.getElementById('resultsSelector').style.display = 'block';
             saveStateToLocalStorage();
