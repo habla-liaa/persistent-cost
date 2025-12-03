@@ -680,6 +680,43 @@
         .pointcloud-link:hover {
             color: #2980b9;
         }
+        
+        /* Tolerance selector styles */
+        .tolerance-selector {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 12px;
+            padding: 8px 12px;
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+        }
+        
+        .tolerance-selector label {
+            font-size: 0.85em;
+            font-weight: 500;
+            color: #34495e;
+            white-space: nowrap;
+        }
+        
+        .tolerance-selector select {
+            flex: 1;
+            padding: 6px 10px;
+            border: 1px solid #bdc3c7;
+            border-radius: 3px;
+            font-size: 0.85em;
+            background: white;
+            color: #2c3e50;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .tolerance-selector select:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+        }
     </style>
 </head>
 <body>
@@ -722,7 +759,11 @@
                         <select id="epsSelect">
                             <option value="">Seleccionar eps...</option>
                         </select>
+                        <select id="toleranceSelect" style="display: none;">
+                            <option value="">Sin tolerancias</option>
+                        </select>
                     </div>
+                    <p id="toleranceInfo" style="font-size: 0.75em; color: #7f8c8d; margin-top: 6px; display: none;"></p>
                 </div>
                 
                 <div class="control-section">

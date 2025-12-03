@@ -3,6 +3,7 @@ const appState = {
     loadedResults: [],
     currentResult: null,
     currentMethod: 'cone',
+    currentTolerance: null,  // Tolerancia seleccionada para ker/coker/missing
     dataSource: null,  // 'github' o 'local'
     githubAbortController: null  // Para cancelar carga de GitHub
 };
@@ -36,30 +37,30 @@ function loadStateFromLocalStorage() {
             console.log('[STORAGE] No hay estado guardado');
             return false;
         }
-        
+
         const state = JSON.parse(saved);
         console.log('[STORAGE] Estado encontrado - dataSource:', state.dataSource, 'resultados:', state.loadedResults?.length);
-        
+
         if (state.loadedResults && state.loadedResults.length > 0) {
             appState.loadedResults = state.loadedResults;
             appState.currentMethod = state.currentMethod || 'cone';
             appState.dataSource = state.dataSource || 'github';
             console.log('[STORAGE] Estado cargado - Método:', appState.currentMethod, 'Source:', appState.dataSource);
-            
+
             updateDataSourceIndicator();
             populateSelectors();
             document.getElementById('resultsSelector').style.display = 'block';
-            
+
             // Restaurar selecciones
             if (state.selectedExperiment) {
                 console.log('[STORAGE] Restaurando selección - Exp:', state.selectedExperiment, 'N:', state.selectedN, 'Eps:', state.selectedEps);
                 document.getElementById('experimentSelect').value = state.selectedExperiment;
                 updateNSelect();
-                
+
                 if (state.selectedN) {
                     document.getElementById('nSelect').value = state.selectedN;
                     updateEpsSelect();
-                    
+
                     if (state.selectedEps !== undefined) {
                         setTimeout(() => {
                             const epsSelect = document.getElementById('epsSelect');
@@ -77,7 +78,7 @@ function loadStateFromLocalStorage() {
                     updateNSelect();
                 }
             }
-            
+
             return true;
         }
     } catch (e) {
@@ -90,9 +91,9 @@ function updateDataSourceIndicator() {
     console.log('[UI] updateDataSourceIndicator - source:', appState.dataSource, 'count:', appState.loadedResults.length);
     const indicator = document.getElementById('dataSourceIndicator');
     if (!indicator) return;
-    
+
     const count = appState.loadedResults.length;
-    
+
     if (appState.dataSource === 'local') {
         indicator.innerHTML = `<span class="source-badge source-local">Local<span class="source-count">(${count} archivos)</span></span>`;
     } else if (appState.dataSource === 'github') {
@@ -129,21 +130,25 @@ document.addEventListener('DOMContentLoaded', () => {
     const folderInput = document.getElementById('folderInput');
     const clearCacheBtn = document.getElementById('clearCacheBtn');
     const showPersistenceToggle = document.getElementById('showPersistenceMetrics');
-    
+
     folderInput.addEventListener('change', handleFolderSelect);
     clearCacheBtn.addEventListener('click', clearCache);
-    
+
     const experimentSelect = document.getElementById('experimentSelect');
     const nSelect = document.getElementById('nSelect');
     const epsSelect = document.getElementById('epsSelect');
-    
+
     experimentSelect.addEventListener('change', updateNSelect);
     nSelect.addEventListener('change', updateEpsSelect);
     epsSelect.addEventListener('change', displaySelectedResult);
-    
+
     // Listener para el toggle de persistencia
     showPersistenceToggle.addEventListener('change', togglePersistenceMetrics);
     
+    // Listener para el selector de tolerancia
+    const toleranceSelect = document.getElementById('toleranceSelect');
+    toleranceSelect.addEventListener('change', handleToleranceChange);
+
     // Intentar cargar estado guardado
     console.log('[INIT] Intentando cargar estado desde localStorage...');
     const wasRestored = loadStateFromLocalStorage();
@@ -154,7 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('[INIT] No hay estado guardado, cargando desde GitHub...');
         loadResultsFromGitHub();
     }
-    
+
     // Agregar listener para navegación con teclado
     document.addEventListener('keydown', handleKeyboardNavigation);
 });
@@ -164,61 +169,61 @@ async function loadResultsFromGitHub() {
     console.log('[GITHUB] Iniciando carga desde GitHub...');
     const content = document.getElementById('content');
     content.innerHTML = '<div class="loading">Cargando resultados desde GitHub...</div>';
-    
+
     // Crear AbortController para poder cancelar
     appState.githubAbortController = new AbortController();
     const signal = appState.githubAbortController.signal;
     console.log('[GITHUB] AbortController creado');
-    
+
     try {
         // URL de la API de GitHub para listar contenidos de la carpeta
         const apiUrl = 'https://api.github.com/repos/habla-liaa/persistent-cost/contents/docs/results';
         console.log('[GITHUB] Fetching:', apiUrl);
-        
+
         const response = await fetch(apiUrl, { signal });
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
+
         const files = await response.json();
-        
+
         // Filtrar solo archivos JSON
-        const jsonFiles = files.filter(file => 
+        const jsonFiles = files.filter(file =>
             file.type === 'file' && file.name.endsWith('.json')
         );
-        
+
         console.log('[GITHUB] Archivos JSON encontrados:', jsonFiles.length, jsonFiles.map(f => f.name));
-        
+
         if (jsonFiles.length === 0) {
             console.log('[GITHUB] ERROR: No se encontraron archivos JSON');
             showError('No se encontraron archivos JSON en el repositorio');
             return;
         }
-        
+
         // Cargar cada archivo JSON (pasando el nombre para extraer eps)
         console.log('[GITHUB] Cargando', jsonFiles.length, 'archivos JSON...');
         const promises = jsonFiles.map(file => loadJSONFromURL(file.download_url, file.name, signal));
         const results = await Promise.all(promises);
         console.log('[GITHUB] Archivos cargados:', results.filter(r => r !== null).length, 'exitosos');
-        
+
         // Verificar si fue cancelado antes de actualizar el estado
         if (signal.aborted) {
             console.log('[GITHUB] Carga abortada, no actualizando estado');
             return;
         }
-        
+
         // Filtrar resultados nulos y sin experiment_name (como summary.json)
         appState.loadedResults = results.filter(r => r !== null && r.experiment_name);
         appState.dataSource = 'github';
         console.log('[GITHUB] Resultados válidos:', appState.loadedResults.length);
-        
+
         if (appState.loadedResults.length > 0) {
             console.log('[GITHUB] Actualizando UI...');
             updateDataSourceIndicator();
             populateSelectors();
             document.getElementById('resultsSelector').style.display = 'block';
             saveStateToLocalStorage();
-            
+
             // Mostrar el primer resultado automáticamente
             const firstExperiment = appState.loadedResults[0].experiment_name;
             document.getElementById('experimentSelect').value = firstExperiment;
@@ -267,7 +272,7 @@ async function loadJSONFromURL(url, filename = '', signal = null) {
 function togglePersistenceMetrics() {
     const showPersistence = document.getElementById('showPersistenceMetrics').checked;
     const persistenceRows = document.querySelectorAll('.persistence-metric');
-    
+
     persistenceRows.forEach(row => {
         if (showPersistence) {
             row.classList.add('visible');
@@ -277,19 +282,147 @@ function togglePersistenceMetrics() {
     });
 }
 
+// Manejar cambio de tolerancia
+function handleToleranceChange() {
+    const toleranceSelect = document.getElementById('toleranceSelect');
+    const selectedTolerance = toleranceSelect.value;
+    
+    if (!selectedTolerance || !appState.currentResult) return;
+    
+    appState.currentTolerance = selectedTolerance;
+    console.log('[TOLERANCE] Cambiando a tolerancia:', selectedTolerance);
+    
+    // Redibujar los diagramas con la nueva tolerancia
+    drawAllDiagrams(appState.currentResult, appState.currentMethod);
+    
+    // Actualizar las listas de barras y estadísticas para ker, coker y missing
+    updateDictDiagramsForTolerance();
+    
+    saveStateToLocalStorage();
+}
+
+// Actualizar los diagramas tipo dict con la tolerancia seleccionada
+function updateDictDiagramsForTolerance() {
+    const method = appState.currentMethod;
+    const methodData = appState.currentResult[method];
+    if (!methodData) return;
+    
+    const tolerance = appState.currentTolerance;
+    
+    ['dgm_ker', 'dgm_coker', 'missing'].forEach(diagramKey => {
+        const rawDgm = methodData[diagramKey];
+        if (!isDictDiagram(rawDgm)) return;
+        
+        const dgm = rawDgm[tolerance];
+        if (!dgm) return;
+        
+        const canvasId = `${method}-${diagramKey.replace('dgm_', '')}`;
+        
+        // Actualizar estadísticas
+        const stats = computeStatistics(dgm);
+        const statsContainer = document.getElementById(`${canvasId}-stats`);
+        if (statsContainer) {
+            statsContainer.innerHTML = generateStatsTable(stats);
+        }
+        
+        // Actualizar lista de barras
+        const barsContainer = document.getElementById(`${canvasId}-bars`);
+        if (barsContainer) {
+            const titleMap = {
+                'dgm_ker': 'Kernel',
+                'dgm_coker': 'Cokernel',
+                'missing': 'Missing'
+            };
+            const title = titleMap[diagramKey] || diagramKey;
+            barsContainer.innerHTML = generateBarsList(dgm, title);
+        }
+        
+        // Actualizar badges de dimensión
+        const card = document.querySelector(`[data-diagram-key="${diagramKey}"]`);
+        if (card) {
+            const h3 = card.querySelector('h3');
+            if (h3) {
+                const titleMap = {
+                    'dgm_ker': 'Kernel',
+                    'dgm_coker': 'Cokernel',
+                    'missing': 'Missing'
+                };
+                const title = titleMap[diagramKey] || diagramKey;
+                h3.innerHTML = `${title} ${generateDimensionBadges(dgm)}`;
+            }
+        }
+    });
+}
+
+// Poblar el selector de tolerancia basado en el método actual
+function updateToleranceSelector() {
+    const toleranceSelect = document.getElementById('toleranceSelect');
+    const toleranceInfo = document.getElementById('toleranceInfo');
+    
+    if (!appState.currentResult || !appState.currentMethod) {
+        toleranceSelect.style.display = 'none';
+        toleranceInfo.style.display = 'none';
+        return;
+    }
+    
+    const methodData = appState.currentResult[appState.currentMethod];
+    if (!methodData) {
+        toleranceSelect.style.display = 'none';
+        toleranceInfo.style.display = 'none';
+        return;
+    }
+    
+    // Buscar tolerancias en dgm_ker, dgm_coker o missing
+    let toleranceKeys = [];
+    for (const key of ['dgm_ker', 'dgm_coker', 'missing']) {
+        const dgm = methodData[key];
+        if (isDictDiagram(dgm)) {
+            toleranceKeys = getToleranceKeys(dgm);
+            break;
+        }
+    }
+    
+    if (toleranceKeys.length === 0) {
+        toleranceSelect.style.display = 'none';
+        toleranceInfo.style.display = 'none';
+        appState.currentTolerance = null;
+        return;
+    }
+    
+    // Mostrar selector y poblar
+    toleranceSelect.style.display = 'block';
+    toleranceInfo.style.display = 'block';
+    toleranceSelect.innerHTML = '';
+    
+    toleranceKeys.forEach((key, idx) => {
+        const option = document.createElement('option');
+        option.value = key;
+        option.textContent = `Tol: ${formatToleranceKey(key)}`;
+        toleranceSelect.appendChild(option);
+    });
+    
+    // Seleccionar la tolerancia actual o la primera
+    if (appState.currentTolerance && toleranceKeys.includes(appState.currentTolerance)) {
+        toleranceSelect.value = appState.currentTolerance;
+    } else {
+        toleranceSelect.value = toleranceKeys[0];
+        appState.currentTolerance = toleranceKeys[0];
+    }
+    
+    toleranceInfo.textContent = `${toleranceKeys.length} tolerancias para ker/coker`;
+}
+
 function handleKeyboardNavigation(event) {
     // Solo si hay un resultado cargado
     if (!appState.currentResult) return;
-    
-    // Obtener métodos disponibles (excluir 'cylinder' method)
-    const methods = ['cone', 'cone2', 'cone_htr', 'cone_gd'].filter(m => 
-        appState.currentResult[m] && !appState.currentResult[m].error
-    );
-    
+
+    // Obtener métodos disponibles dinámicamente
+    const methods = getAvailableMethods(appState.currentResult);
+
     if (methods.length === 0) return;
-    
+
     const currentIndex = methods.indexOf(appState.currentMethod);
-    
+
     if (event.key === 'ArrowLeft') {
         event.preventDefault();
         // Ir al método anterior (circular)
@@ -305,7 +438,7 @@ function handleKeyboardNavigation(event) {
 
 function switchToMethod(method) {
     appState.currentMethod = method;
-    
+
     // Actualizar tabs visuales
     const tabs = document.querySelectorAll('.method-tab');
     tabs.forEach(tab => {
@@ -315,20 +448,23 @@ function switchToMethod(method) {
             tab.classList.remove('active');
         }
     });
-    
+
     // Mostrar contenido correspondiente
     document.querySelectorAll('.method-content').forEach(c => c.classList.remove('active'));
     const targetContent = document.querySelector(`.method-content[data-method="${method}"]`);
     if (targetContent) {
         targetContent.classList.add('active');
     }
-    
+
+    // Actualizar selector de tolerancia para el nuevo método
+    updateToleranceSelector();
+
     // Redibujar diagramas
     drawAllDiagrams(appState.currentResult, method);
-    
+
     // Actualizar barra de estado
     updateStatusBar();
-    
+
     // Guardar estado
     saveStateToLocalStorage();
 }
@@ -338,7 +474,7 @@ function updateStatusBar() {
     const statusMethod = document.getElementById('statusMethod');
     const statusExperiment = document.getElementById('statusExperiment');
     const statusN = document.getElementById('statusN');
-    
+
     if (appState.currentResult) {
         statusBar.style.display = 'flex';
         statusMethod.textContent = appState.currentMethod.toUpperCase();
@@ -352,7 +488,7 @@ function updateStatusBar() {
 // Manejo de carga de carpeta local
 function handleFolderSelect(event) {
     console.log('[LOCAL] Usuario seleccionó carpeta local');
-    
+
     // Cancelar carga de GitHub si está en progreso
     if (appState.githubAbortController) {
         console.log('[LOCAL] Cancelando carga de GitHub en progreso...');
@@ -360,13 +496,13 @@ function handleFolderSelect(event) {
         appState.githubAbortController = null;
         console.log('[LOCAL] Carga de GitHub cancelada');
     }
-    
+
     const allFiles = Array.from(event.target.files);
     console.log('[LOCAL] Total archivos en carpeta:', allFiles.length);
     const files = allFiles.filter(f => f.name.endsWith('.json'));
-    
+
     console.log('[LOCAL] Archivos JSON encontrados:', files.length, files.map(f => f.name));
-    
+
     if (files.length === 0) {
         showError('No se encontraron archivos JSON en la carpeta');
         return;
@@ -378,11 +514,11 @@ function loadFiles(files) {
     console.log('[LOCAL] loadFiles: Iniciando carga de', files.length, 'archivos');
     appState.loadedResults = [];
     const promises = [];
-    
+
     for (let file of files) {
         promises.push(loadJSONFile(file));
     }
-    
+
     console.log('[LOCAL] Esperando que todos los archivos se carguen...');
     Promise.all(promises).then(results => {
         console.log('[LOCAL] Todos los archivos procesados');
@@ -390,11 +526,27 @@ function loadFiles(files) {
         appState.loadedResults = results.filter(r => r !== null && r.experiment_name);
         appState.dataSource = 'local';
         console.log('[LOCAL] Resultados válidos:', appState.loadedResults.length);
-        console.log('[LOCAL] Resultados con eps:', appState.loadedResults.map(r => ({
-            name: r.experiment_name,
-            n: r.n,
-            eps: r.eps
-        })));
+        
+        // Log detallado de cada resultado encontrado
+        console.log('[LOCAL] === Lista de experimentos encontrados ===');
+        appState.loadedResults.forEach((r, idx) => {
+            // Detectar tipos de diagramas (list vs dict) - usar detección dinámica
+            const methods = getAvailableMethods(r);
+            const methodDetails = methods.map(m => {
+                const md = r[m];
+                const kerType = md.dgm_ker ? (Array.isArray(md.dgm_ker) ? 'list' : 'dict') : 'N/A';
+                const cokerType = md.dgm_coker ? (Array.isArray(md.dgm_coker) ? 'list' : 'dict') : 'N/A';
+                const missingType = md.missing ? (Array.isArray(md.missing) ? 'list' : 'dict') : 'N/A';
+                return `${m}(ker:${kerType}, coker:${cokerType}, missing:${missingType})`;
+            });
+            console.log(`[LOCAL] [${idx + 1}] ${r.experiment_name} | n=${r.n} | eps=${r.eps} | métodos: ${methodDetails.join(', ')}`);
+        });
+        console.log('[LOCAL] === Fin lista de experimentos ===');
+        
+        // Resumen por experimento
+        const experiments = [...new Set(appState.loadedResults.map(r => r.experiment_name))].sort();
+        console.log('[LOCAL] Experimentos únicos:', experiments);
+        
         if (appState.loadedResults.length > 0) {
             updateDataSourceIndicator();
             populateSelectors();
@@ -434,7 +586,7 @@ function populateSelectors() {
     const experimentSelect = document.getElementById('experimentSelect');
     const experiments = [...new Set(appState.loadedResults.map(r => r.experiment_name))].sort();
     console.log('[UI] Experimentos encontrados:', experiments);
-    
+
     experimentSelect.innerHTML = '<option value="">Seleccionar experimento...</option>';
     experiments.forEach(exp => {
         const option = document.createElement('option');
@@ -451,20 +603,20 @@ function updateNSelect() {
     const epsSelect = document.getElementById('epsSelect');
     const selectedExp = experimentSelect.value;
     console.log('[UI] Experimento seleccionado:', selectedExp);
-    
+
     if (!selectedExp) {
         nSelect.innerHTML = '<option value="">Seleccionar n...</option>';
         nSelect.disabled = true;
         epsSelect.style.display = 'none';
         return;
     }
-    
+
     // Obtener valores de n únicos para este experimento
     const nValues = [...new Set(appState.loadedResults
         .filter(r => r.experiment_name === selectedExp)
         .map(r => r.n))]
         .sort((a, b) => a - b);
-    
+
     nSelect.innerHTML = '<option value="">Seleccionar n...</option>';
     nValues.forEach(n => {
         const option = document.createElement('option');
@@ -473,13 +625,13 @@ function updateNSelect() {
         nSelect.appendChild(option);
     });
     nSelect.disabled = false;
-    
+
     // Seleccionar automáticamente el n más pequeño
     if (nValues.length > 0) {
         nSelect.value = nValues[0];
         updateEpsSelect();
     }
-    
+
     // Guardar estado
     saveStateToLocalStorage();
 }
@@ -492,27 +644,27 @@ function updateEpsSelect() {
     const selectedExp = experimentSelect.value;
     const selectedN = parseInt(nSelect.value);
     console.log('[UI] Experimento:', selectedExp, 'N:', selectedN);
-    
+
     if (!selectedExp || !selectedN) {
         epsSelect.innerHTML = '<option value="">Seleccionar ε...</option>';
         epsSelect.disabled = true;
         return;
     }
-    
+
     // Filtrar resultados por experimento y n
     const matchingResults = appState.loadedResults.filter(
         r => r.experiment_name === selectedExp && r.n === selectedN
     );
     console.log('[UI] Resultados que coinciden:', matchingResults.length);
-    
+
     // Extraer valores de eps (siempre existe, default es 0)
     const epsValues = [...new Set(matchingResults.map(r => r.eps ?? 0))].sort((a, b) => a - b);
     console.log('[UI] Valores de eps encontrados:', epsValues);
-    
+
     // Actualizar selector de eps
     epsSelect.disabled = false;
     epsSelect.innerHTML = '';
-    
+
     if (epsValues.length === 0) {
         epsSelect.innerHTML = '<option value="">Sin resultados</option>';
         epsSelect.disabled = true;
@@ -523,12 +675,12 @@ function updateEpsSelect() {
             option.textContent = `ε = ${eps}`;
             epsSelect.appendChild(option);
         });
-        
+
         // Seleccionar el primer valor automáticamente
         epsSelect.value = epsValues[0];
         displaySelectedResult();
     }
-    
+
     // Guardar estado
     saveStateToLocalStorage();
 }
@@ -542,12 +694,12 @@ function displaySelectedResult() {
     const selectedN = parseInt(nSelect.value);
     const selectedEps = parseFloat(epsSelect.value);
     console.log('[UI] Buscando resultado - Exp:', selectedExp, 'N:', selectedN, 'Eps:', selectedEps);
-    
+
     if (!selectedExp || !selectedN || isNaN(selectedEps)) {
         console.log('[UI] displaySelectedResult: Parámetros incompletos, saliendo');
         return;
     }
-    
+
     // Buscar resultado que coincida con experimento, n y eps
     const result = appState.loadedResults.find(r => {
         const matchExp = r.experiment_name === selectedExp;
@@ -555,9 +707,9 @@ function displaySelectedResult() {
         const matchEps = (r.eps ?? 0) === selectedEps;
         return matchExp && matchN && matchEps;
     });
-    
+
     if (result) {
-        console.log('[UI] Resultado encontrado:', result.experiment_name, 'n='+result.n, 'eps='+result.eps);
+        console.log('[UI] Resultado encontrado:', result.experiment_name, 'n=' + result.n, 'eps=' + result.eps);
         appState.currentResult = result;
         renderResult(result);
         saveStateToLocalStorage();
@@ -570,7 +722,7 @@ function displaySelectedResult() {
 // Renderizado principal
 function renderResult(result) {
     const content = document.getElementById('content');
-    
+
     // Panel de información
     const infoHTML = `
         <div class="info-panel">
@@ -614,25 +766,28 @@ function renderResult(result) {
             </div>
         </div>
     `;
-    
+
     content.innerHTML = infoHTML;
-    
+
     // Activar tabs
     setupMethodTabs();
     
+    // Actualizar selector de tolerancia en sidebar
+    updateToleranceSelector();
+
     // Dibujar diagramas del método activo
     drawAllDiagrams(result, appState.currentMethod);
-    
+
     // Actualizar barra de estado
     updateStatusBar();
-    
+
     // Guardar estado
     saveStateToLocalStorage();
 }
 
 function generateMethodTabs(result) {
-    // Solo mostrar cone, cone2, cone_htr y cone_gd, no cylinder method
-    const methods = ['cone', 'cone2', 'cone_htr', 'cone_gd'].filter(m => result[m] && !result[m].error);
+    // Obtener métodos disponibles dinámicamente
+    const methods = getAvailableMethods(result);
     return methods.map(method => `
         <button class="method-tab ${method === appState.currentMethod ? 'active' : ''}" 
                 data-method="${method}">
@@ -641,8 +796,8 @@ function generateMethodTabs(result) {
 }
 
 function generateMethodContents(result) {
-    // Solo mostrar cone, cone2, cone_htr y cone_gd, no cylinder method
-    const methods = ['cone', 'cone2', 'cone_htr', 'cone_gd'].filter(m => result[m] && !result[m].error);
+    // Obtener métodos disponibles dinámicamente
+    const methods = getAvailableMethods(result);
     return methods.map(method => {
         const methodData = result[method];
         return `
@@ -654,9 +809,62 @@ function generateMethodContents(result) {
     }).join('');
 }
 
+// Helper function to get available methods from a result
+// Detecta dinámicamente los métodos disponibles en los datos
+function getAvailableMethods(result) {
+    if (!result) return [];
+    
+    // Buscar todas las claves que parezcan métodos (tienen dgm_X, dgm_Y, etc.)
+    const methods = [];
+    for (const key of Object.keys(result)) {
+        const value = result[key];
+        // Un método válido es un objeto que contiene dgm_X o dgm_cone
+        if (value && typeof value === 'object' && !Array.isArray(value)) {
+            if (value.dgm_X || value.dgm_cone || value.dgm_Y) {
+                // Excluir si tiene error
+                if (!value.error) {
+                    methods.push(key);
+                }
+            }
+        }
+    }
+    
+    // Ordenar para consistencia (cone primero, luego alfabético)
+    return methods.sort((a, b) => {
+        if (a === 'cone') return -1;
+        if (b === 'cone') return 1;
+        return a.localeCompare(b);
+    });
+}
+
+// Helper function to check if a diagram is a dictionary (tolerance-keyed)
+function isDictDiagram(dgm) {
+    return dgm && typeof dgm === 'object' && !Array.isArray(dgm);
+}
+
+// Get the diagram data, handling both list and dict formats
+// Usa la tolerancia global si no se especifica una
+function getDiagramData(dgm, selectedKey = null) {
+    if (!dgm) return null;
+    if (Array.isArray(dgm)) return dgm;
+    if (isDictDiagram(dgm)) {
+        const keys = Object.keys(dgm).sort((a, b) => parseFloat(a) - parseFloat(b));
+        // Usar la tolerancia global si está disponible, sino la primera
+        const key = selectedKey || appState.currentTolerance || keys[0];
+        return dgm[key] || null;
+    }
+    return null;
+}
+
+// Get tolerance keys from a dict diagram
+function getToleranceKeys(dgm) {
+    if (!isDictDiagram(dgm)) return [];
+    return Object.keys(dgm).sort((a, b) => parseFloat(a) - parseFloat(b));
+}
+
 function generateDiagramsGrid(methodData, method) {
     let html = '';
-    
+
     // Botón para abrir modal de nubes de puntos
     if (methodData.X && methodData.Y) {
         const dimX = methodData.X[0] ? methodData.X[0].length : 0;
@@ -669,38 +877,40 @@ function generateDiagramsGrid(methodData, method) {
             html += '</div>';
         }
     }
-    
+
     // Primera fila: X, Y, Cylinder
     html += '<h3 style="margin: 20px 0 10px 0; color: #2c3e50; font-size: 1.1em;">Diagramas de Persistencia</h3>';
     html += '<div class="diagrams-grid persistence-row">';
-    html += generateDiagramCard({ key: 'dgm_X', title: 'Espacio X', id: `${method}-X` }, methodData);
-    html += generateDiagramCard({ key: 'dgm_Y', title: 'Espacio Y', id: `${method}-Y` }, methodData);
-    html += generateDiagramCard({ key: 'dgm_cylinder', title: 'Cilindro', id: `${method}-cylinder` }, methodData);
+    html += generateDiagramCard({ key: 'dgm_X', title: 'Espacio X', id: `${method}-X` }, methodData, method);
+    html += generateDiagramCard({ key: 'dgm_Y', title: 'Espacio Y', id: `${method}-Y` }, methodData, method);
+    html += generateDiagramCard({ key: 'dgm_cylinder', title: 'Cilindro', id: `${method}-cylinder` }, methodData, method);
     html += '</div>';
-    
+
     // Segunda fila: Cone, Ker, Coker
     html += '<div class="diagrams-grid persistence-row">';
-    html += generateDiagramCard({ key: 'dgm_cone', title: 'Cono', id: `${method}-cone` }, methodData);
-    html += generateDiagramCard({ key: 'dgm_ker', title: 'Kernel', id: `${method}-ker` }, methodData);
-    html += generateDiagramCard({ key: 'dgm_coker', title: 'Cokernel', id: `${method}-coker` }, methodData);
+    html += generateDiagramCard({ key: 'dgm_cone', title: 'Cono', id: `${method}-cone` }, methodData, method);
+    html += generateDiagramCard({ key: 'dgm_ker', title: 'Kernel', id: `${method}-ker` }, methodData, method, true);
+    html += generateDiagramCard({ key: 'dgm_coker', title: 'Cokernel', id: `${method}-coker` }, methodData, method, true);
     html += '</div>';
-    
+
     // Tercera fila: Missing (si existe)
-    if (methodData.missing && methodData.missing.length > 0) {
+    const missingData = methodData.missing;
+    const hasMissing = missingData && (Array.isArray(missingData) ? missingData.length > 0 : Object.keys(missingData).length > 0);
+    if (hasMissing) {
         html += '<div class="diagrams-grid missing-row">';
-        html += generateDiagramCard({ key: 'missing', title: 'Missing', id: `${method}-missing` }, methodData);
+        html += generateDiagramCard({ key: 'missing', title: 'Missing', id: `${method}-missing` }, methodData, method, true);
         html += '</div>';
     }
-    
+
     return html;
 }
 
 function generatePointCloudCard(points, title, id) {
     if (!points || points.length === 0) return '';
-    
+
     const dim = points[0].length;
     if (dim < 2 || dim > 3) return '';
-    
+
     return `
         <div class="diagram-card">
             <h3>${title} <span class="badge" style="background: #34495e; color: white;">${dim}D</span></h3>
@@ -717,27 +927,108 @@ function generatePointCloudCard(points, title, id) {
     `;
 }
 
-function generateDiagramCard(diagram, methodData) {
-    const dgm = methodData[diagram.key];
+function generateDiagramCard(diagram, methodData, method, canBeDict = false) {
+    const rawDgm = methodData[diagram.key];
+    const isDict = canBeDict && isDictDiagram(rawDgm);
+    const toleranceKeys = isDict ? getToleranceKeys(rawDgm) : [];
+    const dgm = getDiagramData(rawDgm);
     const stats = computeStatistics(dgm);
-    
+
+    // Debug logging
+    if (canBeDict) {
+        console.log(`[DIAGRAM] ${diagram.key}: canBeDict=${canBeDict}, rawDgm type=${typeof rawDgm}, isArray=${Array.isArray(rawDgm)}, isDict=${isDict}, toleranceKeys=${toleranceKeys.length}`);
+        if (isDict) {
+            console.log(`[DIAGRAM] ${diagram.key}: tolerance keys=`, toleranceKeys);
+        }
+    }
+
+    // Ya no se necesita selector inline, la tolerancia se selecciona desde el sidebar
+
     return `
-        <div class="diagram-card">
+        <div class="diagram-card" data-diagram-key="${diagram.key}" data-is-dict="${isDict}">
             <h3>
                 ${diagram.title}
                 ${generateDimensionBadges(dgm)}
             </h3>
             <canvas class="diagram-canvas" id="${diagram.id}"></canvas>
-            ${generateStatsTable(stats)}
-            ${generateBarsList(dgm, diagram.title)}
+            <div id="${diagram.id}-stats">
+                ${generateStatsTable(stats)}
+            </div>
+            <div id="${diagram.id}-bars">
+                ${generateBarsList(dgm, diagram.title)}
+            </div>
         </div>
     `;
+}
+
+// Format tolerance key for display (scientific notation)
+function formatToleranceKey(key) {
+    const num = parseFloat(key);
+    if (isNaN(num)) return key;
+    if (num === 0) return '0';
+    if (Math.abs(num) < 0.001 || Math.abs(num) >= 10000) {
+        return num.toExponential(2);
+    }
+    return num.toPrecision(4);
+}
+
+// Update diagram when tolerance selection changes
+function updateDiagramForTolerance(method, diagramKey, canvasId, toleranceKey) {
+    const methodData = appState.currentResult[method];
+    if (!methodData) return;
+
+    const rawDgm = methodData[diagramKey];
+    if (!isDictDiagram(rawDgm)) return;
+
+    const dgm = rawDgm[toleranceKey];
+    if (!dgm) return;
+
+    // Calculate global range for consistent scaling
+    const globalRange = calculateGlobalRange(methodData);
+
+    // Redraw the diagram
+    drawDiagram(canvasId, dgm, globalRange);
+
+    // Update stats
+    const stats = computeStatistics(dgm);
+    const statsContainer = document.getElementById(`${canvasId}-stats`);
+    if (statsContainer) {
+        statsContainer.innerHTML = generateStatsTable(stats);
+    }
+
+    // Update bars list
+    const barsContainer = document.getElementById(`${canvasId}-bars`);
+    if (barsContainer) {
+        // Determine title from diagramKey
+        const titleMap = {
+            'dgm_ker': 'Kernel',
+            'dgm_coker': 'Cokernel',
+            'missing': 'Missing'
+        };
+        const title = titleMap[diagramKey] || diagramKey;
+        barsContainer.innerHTML = generateBarsList(dgm, title);
+    }
+
+    // Update dimension badges in header
+    const card = document.querySelector(`[data-diagram-key="${diagramKey}"]`);
+    if (card) {
+        const h3 = card.querySelector('h3');
+        if (h3) {
+            const titleMap = {
+                'dgm_ker': 'Kernel',
+                'dgm_coker': 'Cokernel',
+                'missing': 'Missing'
+            };
+            const title = titleMap[diagramKey] || diagramKey;
+            h3.innerHTML = `${title} ${generateDimensionBadges(dgm)}`;
+        }
+    }
 }
 
 function generateDimensionBadges(dgm) {
     if (!dgm) return '';
     const counts = countBarsByDimension(dgm);
-    return counts.map((count, dim) => 
+    return counts.map((count, dim) =>
         count > 0 ? `<span class="badge badge-h${dim}">${DIM_LABELS[dim]}: ${count}</span>` : ''
     ).join('');
 }
@@ -767,28 +1058,28 @@ function generateStatsTable(stats) {
 
 function generateBarsList(dgm, title) {
     if (!dgm || dgm.length === 0) return '';
-    
+
     let html = '<div class="bars-list"><h4>Lista de Barras</h4><div class="bars-container">';
-    
+
     dgm.forEach((dimBars, dim) => {
         if (!dimBars || dimBars.length === 0) return;
-        
+
         html += `<div class="dimension-section">`;
         html += `<div class="dimension-header">${DIM_LABELS[dim]} (${dimBars.length} barras)</div>`;
-        
+
         dimBars.forEach((bar, idx) => {
             // Verificar si estamos en vista "Missing" con formato (categoria, (birth, death))
             if (title === 'Missing' && Array.isArray(bar) && bar.length === 2 && typeof bar[0] === 'string') {
                 const category = bar[0];
                 const coords = bar[1];
-                
+
                 if (!Array.isArray(coords) || coords.length < 2) return;
-                
+
                 const b = typeof coords[0] === 'number' ? coords[0] : parseFloat(coords[0]);
                 const d = coords[1];
-                
+
                 if (isNaN(b)) return;
-                
+
                 const birth = b.toFixed(4);
                 const isInfinite = (d === null || !isFinite(d));
                 const death = isInfinite ? '∞' : (typeof d === 'number' ? d.toFixed(4) : parseFloat(d).toFixed(4));
@@ -797,12 +1088,12 @@ function generateBarsList(dgm, title) {
             } else {
                 // Formato normal [birth, death]
                 if (!Array.isArray(bar) || bar.length < 2) return;
-                
+
                 const b = typeof bar[0] === 'number' ? bar[0] : parseFloat(bar[0]);
                 const d = bar[1];
-                
+
                 if (isNaN(b)) return;
-                
+
                 const birth = b.toFixed(4);
                 // Manejar null como infinito
                 const isInfinite = (d === null || !isFinite(d));
@@ -811,10 +1102,10 @@ function generateBarsList(dgm, title) {
                 html += `<div class="bar-item">[${idx}] (${birth}, ${death}) — pers: ${pers}</div>`;
             }
         });
-        
+
         html += `</div>`;
     });
-    
+
     html += '</div></div>';
     return html;
 }
@@ -834,10 +1125,10 @@ function setupMethodTabs() {
 function drawAllDiagrams(result, method) {
     const methodData = result[method];
     if (!methodData || methodData.error) return;
-    
+
     // Calcular rango global para todos los diagramas
     const globalRange = calculateGlobalRange(methodData);
-    
+
     // Esperar a que el DOM esté actualizado
     setTimeout(() => {
         // Dibujar diagramas de persistencia con rango global
@@ -845,41 +1136,58 @@ function drawAllDiagrams(result, method) {
         drawDiagram(`${method}-Y`, methodData.dgm_Y, globalRange);
         drawDiagram(`${method}-cylinder`, methodData.dgm_cylinder, globalRange);
         drawDiagram(`${method}-cone`, methodData.dgm_cone, globalRange);
-        drawDiagram(`${method}-ker`, methodData.dgm_ker, globalRange);
-        drawDiagram(`${method}-coker`, methodData.dgm_coker, globalRange);
-        if (methodData.missing && methodData.missing.length > 0) {
-            drawDiagram(`${method}-missing`, methodData.missing, globalRange);
+
+        // Handle dgm_ker (may be dict)
+        drawDiagram(`${method}-ker`, getDiagramData(methodData.dgm_ker), globalRange);
+
+        // Handle dgm_coker (may be dict)
+        drawDiagram(`${method}-coker`, getDiagramData(methodData.dgm_coker), globalRange);
+
+        // Handle missing (may be dict)
+        const missingData = methodData.missing;
+        const hasMissing = missingData && (Array.isArray(missingData) ? missingData.length > 0 : Object.keys(missingData).length > 0);
+        if (hasMissing) {
+            drawDiagram(`${method}-missing`, getDiagramData(missingData), globalRange);
         }
     }, 10);
 }
 
 function calculateGlobalRange(methodData) {
+    // Collect all diagrams, handling dict format for ker, coker, missing
     const diagrams = [
         methodData.dgm_X,
         methodData.dgm_Y,
         methodData.dgm_cylinder,
-        methodData.dgm_cone,
-        methodData.dgm_ker,
-        methodData.dgm_coker,
-        methodData.missing
+        methodData.dgm_cone
     ].filter(d => d);
-    
+
+    // Add all tolerance variants for dict diagrams
+    ['dgm_ker', 'dgm_coker', 'missing'].forEach(key => {
+        const dgm = methodData[key];
+        if (!dgm) return;
+        if (Array.isArray(dgm)) {
+            diagrams.push(dgm);
+        } else if (isDictDiagram(dgm)) {
+            Object.values(dgm).forEach(d => diagrams.push(d));
+        }
+    });
+
     let max = 0;
     diagrams.forEach(dgm => {
         if (!dgm) return;
         const range = calculateRange(dgm);
         max = Math.max(max, range.max);
     });
-    
+
     return { max: max === 0 ? 1 : max };
 }
 
 function drawPointCloud(divId, points, title = '') {
     const div = document.getElementById(divId);
     if (!div || !points || points.length === 0) return;
-    
+
     const dim = points[0].length;
-    
+
     if (dim === 2) {
         // 2D scatter plot
         const trace = {
@@ -894,7 +1202,7 @@ function drawPointCloud(divId, points, title = '') {
             },
             name: title
         };
-        
+
         const layout = {
             title: title ? { text: title, font: { size: 16 } } : undefined,
             margin: { l: 50, r: 30, t: title ? 50 : 30, b: 50 },
@@ -905,9 +1213,9 @@ function drawPointCloud(divId, points, title = '') {
             paper_bgcolor: '#fafafa',
             showlegend: false
         };
-        
+
         Plotly.newPlot(div, [trace], layout, { responsive: true, displayModeBar: true });
-        
+
     } else if (dim === 3) {
         // 3D scatter plot
         const trace = {
@@ -923,7 +1231,7 @@ function drawPointCloud(divId, points, title = '') {
             },
             name: title
         };
-        
+
         const layout = {
             title: title ? { text: title, font: { size: 16 } } : undefined,
             margin: { l: 0, r: 0, t: title ? 50 : 0, b: 0 },
@@ -940,7 +1248,7 @@ function drawPointCloud(divId, points, title = '') {
             paper_bgcolor: '#fafafa',
             showlegend: false
         };
-        
+
         Plotly.newPlot(div, [trace], layout, { responsive: true, displayModeBar: true });
     }
 }
@@ -948,36 +1256,36 @@ function drawPointCloud(divId, points, title = '') {
 function drawDiagram(canvasId, dgm, globalRange) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
-    
+
     const ctx = canvas.getContext('2d');
     const width = canvas.width = canvas.offsetWidth;
     const height = canvas.height = canvas.offsetHeight;
-    
+
     // Limpiar
     ctx.clearRect(0, 0, width, height);
     ctx.fillStyle = 'white';
     ctx.fillRect(0, 0, width, height);
-    
+
     if (!dgm || dgm.length === 0) {
         ctx.fillStyle = '#6c757d';
         ctx.font = '14px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText('Sin datos', width/2, height/2);
+        ctx.fillText('Sin datos', width / 2, height / 2);
         return;
     }
-    
+
     // Usar rango global si se proporciona, sino calcular local
     const range = globalRange || calculateRange(dgm);
     if (range.max === 0) range.max = 1;
-    
+
     const padding = 40;
     const plotWidth = width - 2 * padding;
     const plotHeight = height - 2 * padding;
-    
+
     // Función para escalar coordenadas
     const scaleX = x => padding + (x / (range.max * 1.1)) * plotWidth;
     const scaleY = y => height - padding - (y / (range.max * 1.1)) * plotHeight;
-    
+
     // Dibujar ejes
     ctx.strokeStyle = '#dee2e6';
     ctx.lineWidth = 1;
@@ -987,7 +1295,7 @@ function drawDiagram(canvasId, dgm, globalRange) {
     ctx.moveTo(padding, height - padding);
     ctx.lineTo(padding, padding);
     ctx.stroke();
-    
+
     // Dibujar diagonal
     ctx.strokeStyle = '#adb5bd';
     ctx.lineWidth = 1;
@@ -997,19 +1305,19 @@ function drawDiagram(canvasId, dgm, globalRange) {
     ctx.lineTo(scaleX(range.max * 1.1), scaleY(range.max * 1.1));
     ctx.stroke();
     ctx.setLineDash([]);
-    
+
     // Dibujar puntos por dimensión
     dgm.forEach((dimBars, dim) => {
         if (!dimBars || dimBars.length === 0) return;
-        
+
         ctx.fillStyle = DIMENSION_COLORS[dim % DIMENSION_COLORS.length];
-        
+
         dimBars.forEach(bar => {
             // Validar que bar sea un array con elementos
             if (!Array.isArray(bar) || bar.length < 2) return;
-            
+
             let birth, death, isMissingFormat = false;
-            
+
             // Detectar formato missing: (categoria, (birth, death))
             if (typeof bar[0] === 'string' && Array.isArray(bar[1]) && bar[1].length >= 2) {
                 isMissingFormat = true;
@@ -1021,17 +1329,17 @@ function drawDiagram(canvasId, dgm, globalRange) {
                 birth = typeof bar[0] === 'number' ? bar[0] : parseFloat(bar[0]);
                 death = bar[1];
             }
-            
+
             if (isNaN(birth)) return;
-            
+
             // Manejar null como infinito
             const isInfinite = (death === null || !isFinite(death));
-            
+
             if (!isInfinite) {
                 // Barra finita
                 const x = scaleX(birth);
                 const y = scaleY(death);
-                
+
                 if (isMissingFormat) {
                     // Para missing, dibujar cuadrados en lugar de círculos
                     ctx.fillRect(x - 4, y - 4, 8, 8);
@@ -1054,19 +1362,19 @@ function drawDiagram(canvasId, dgm, globalRange) {
             }
         });
     });
-    
+
     // Etiquetas de ejes
     ctx.fillStyle = '#495057';
     ctx.font = '12px Arial';
     ctx.textAlign = 'center';
     ctx.fillText('Birth', width / 2, height - 10);
-    
+
     ctx.save();
     ctx.translate(15, height / 2);
     ctx.rotate(-Math.PI / 2);
     ctx.fillText('Death', 0, 0);
     ctx.restore();
-    
+
     // Valores en ejes
     ctx.font = '10px Arial';
     ctx.fillStyle = '#6c757d';
@@ -1074,12 +1382,12 @@ function drawDiagram(canvasId, dgm, globalRange) {
     for (let i = 0; i <= ticks; i++) {
         const val = (range.max * 1.1 * i / ticks);
         const label = val.toFixed(2);
-        
+
         // Eje X
         const x = scaleX(val);
         ctx.textAlign = 'center';
         ctx.fillText(label, x, height - padding + 20);
-        
+
         // Eje Y
         const y = scaleY(val);
         ctx.textAlign = 'right';
@@ -1095,9 +1403,9 @@ function calculateRange(dgm) {
         dimBars.forEach(bar => {
             // Validar que bar sea un array válido
             if (!Array.isArray(bar) || bar.length < 2) return;
-            
+
             let b, d;
-            
+
             // Detectar formato missing: (categoria, (birth, death))
             if (typeof bar[0] === 'string' && Array.isArray(bar[1]) && bar[1].length >= 2) {
                 const coords = bar[1];
@@ -1108,7 +1416,7 @@ function calculateRange(dgm) {
                 b = typeof bar[0] === 'number' ? bar[0] : parseFloat(bar[0]);
                 d = bar[1];
             }
-            
+
             if (!isNaN(b)) {
                 max = Math.max(max, b);
             }
@@ -1135,22 +1443,22 @@ function computeStatistics(dgm) {
         avg_persistence: 0,
         max_persistence: 0
     };
-    
+
     if (!dgm) return stats;
-    
+
     const allBars = [];
     dgm.forEach(dimBars => {
         if (dimBars) allBars.push(...dimBars);
     });
-    
+
     stats.n_bars = allBars.length;
-    
+
     allBars.forEach(bar => {
         // Validar que bar sea un array válido
         if (!Array.isArray(bar) || bar.length < 2) return;
-        
+
         let b, d;
-        
+
         // Detectar formato missing: (categoria, (birth, death))
         if (typeof bar[0] === 'string' && Array.isArray(bar[1]) && bar[1].length >= 2) {
             const coords = bar[1];
@@ -1161,12 +1469,12 @@ function computeStatistics(dgm) {
             b = typeof bar[0] === 'number' ? bar[0] : parseFloat(bar[0]);
             d = bar[1];
         }
-        
+
         if (isNaN(b)) return;
-        
+
         // Manejar null como infinito
         const isInfinite = (d === null || !isFinite(d));
-        
+
         if (!isInfinite) {
             stats.n_finite++;
             const dNum = typeof d === 'number' ? d : parseFloat(d);
@@ -1179,11 +1487,11 @@ function computeStatistics(dgm) {
             stats.n_infinite++;
         }
     });
-    
+
     if (stats.n_finite > 0) {
         stats.avg_persistence = stats.total_persistence / stats.n_finite;
     }
-    
+
     return stats;
 }
 
@@ -1201,19 +1509,19 @@ function showError(message) {
 function openPointCloudModal(method) {
     const methodData = appState.currentResult[method];
     if (!methodData || !methodData.X || !methodData.Y) return;
-    
+
     const modal = document.getElementById('pointCloudModal');
     const modalTitle = document.getElementById('modalTitle');
-    
+
     modalTitle.textContent = `Nubes de Puntos - ${method.toUpperCase()}`;
     modal.classList.add('active');
-    
+
     // Esperar a que el modal esté visible para dibujar
     setTimeout(() => {
         drawPointCloud('modalPlotX', methodData.X, 'Espacio X');
         drawPointCloud('modalPlotY', methodData.Y, 'Espacio Y');
     }, 50);
-    
+
     // Cerrar con ESC
     document.addEventListener('keydown', handleModalEscape);
 }

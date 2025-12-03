@@ -296,3 +296,18 @@ def conematrix(dX, dY, f, cone_eps=0.0, max_value=np.inf):
     D = conematrix_blocks(squareform(dX), squareform(dY), DY_fy, cone_eps, max_value)
     return D
 
+
+
+def sort_diagram(dgm):
+    """
+    Ordena un diagrama de persistencia lexicográficamente por (dim, birth, death).
+    """
+    sorted_dgm = []
+    for dim in range(len(dgm)):
+        bars = dgm[dim]
+        # Ordenar por nacimiento, luego por muerte
+        sorted_bars = np.lexsort(bars.T)
+        sorted_bars = bars[sorted_bars]
+        sorted_dgm.append(sorted_bars)
+    return sorted_dgm
+

@@ -27,28 +27,34 @@ def cone_pipeline_htr(dX, dY, f, maxdim=1, cone_eps=0.0, tol=1e-11, threshold=3,
         Maximum distance for Rips complex, by default 3
     return_extra : bool, optional
         Whether to return extra information, by default False
-    
+
     Returns
     -------
     tuple
         (dgm_coker, dgm_ker, dgm_cone, dgm_X, dgm_Y) or with D and missing if return_extra=True
     """
-    
+
     D = conematrix(dX, dY, f, cone_eps)
-    
+
+    thresh = 3 * max(np.max(squareform(dX)), np.max(squareform(dY)))
+
     # Compute persistence using htr with the new signature
     # htr returns (births, deaths, dims)
-    births_X, deaths_X, dims_X = htr(distance_matrix=squareform(dX), threshold=threshold, maxdim=maxdim)
-    births_Y, deaths_Y, dims_Y = htr(distance_matrix=squareform(dY), threshold=threshold, maxdim=maxdim)
-    births_cone, deaths_cone, dims_cone = htr(distance_matrix=D, threshold=threshold, maxdim=maxdim)
-    
+    births_X, deaths_X, dims_X = htr(distance_matrix=squareform(
+        dX), threshold=thresh, maxdim=maxdim)
+    births_Y, deaths_Y, dims_Y = htr(distance_matrix=squareform(
+        dY), threshold=thresh, maxdim=maxdim)
+    births_cone, deaths_cone, dims_cone = htr(
+        distance_matrix=D, threshold=thresh, maxdim=maxdim)
+
     dgm_X = births_deaths_to_dgm(births_X, deaths_X, dims_X, maxdim)
     dgm_Y = births_deaths_to_dgm(births_Y, deaths_Y, dims_Y, maxdim)
-    dgm_cone = births_deaths_to_dgm(births_cone, deaths_cone, dims_cone, maxdim)
+    dgm_cone = births_deaths_to_dgm(
+        births_cone, deaths_cone, dims_cone, maxdim)
 
     dgm_coker, dgm_ker, missing = kercoker_bars(
-        dgm_cone, dgm_X, dgm_Y, cone_eps, tol)
-    
+        dgm_cone, dgm_X, dgm_Y, tol)
+
     if return_extra:
         return dgm_coker, dgm_ker, dgm_cone, dgm_X, dgm_Y, D, missing
     return dgm_coker, dgm_ker, dgm_cone, dgm_X, dgm_Y
