@@ -1253,6 +1253,113 @@ function drawPointCloud(divId, points, title = '') {
     }
 }
 
+// Dibujar dos nubes de puntos superpuestas con diferentes markers y colores
+function drawOverlaidPointClouds(divId, pointsX, pointsY, title = '') {
+    const div = document.getElementById(divId);
+    if (!div || !pointsX || !pointsY || pointsX.length === 0 || pointsY.length === 0) return;
+
+    const dimX = pointsX[0].length;
+    const dimY = pointsY[0].length;
+    const dim = Math.max(dimX, dimY);
+
+    if (dim === 2) {
+        // 2D scatter plot superpuesto
+        const traceX = {
+            x: pointsX.map(p => p[0]),
+            y: pointsX.map(p => p[1]),
+            mode: 'markers',
+            type: 'scatter',
+            marker: {
+                size: 10,
+                symbol: 'circle',
+                color: '#3498db',
+                opacity: 0.7
+            },
+            name: 'X'
+        };
+
+        const traceY = {
+            x: pointsY.map(p => p[0]),
+            y: pointsY.map(p => p[1]),
+            mode: 'markers',
+            type: 'scatter',
+            marker: {
+                size: 10,
+                symbol: 'star',
+                color: '#e74c3c',
+                opacity: 0.7
+            },
+            name: 'Y'
+        };
+
+        const layout = {
+            title: title ? { text: title, font: { size: 16 } } : undefined,
+            margin: { l: 50, r: 30, t: title ? 50 : 30, b: 50 },
+            xaxis: { title: 'x₁', showgrid: true, zeroline: true },
+            yaxis: { title: 'x₂', showgrid: true, zeroline: true },
+            hovermode: 'closest',
+            plot_bgcolor: '#fafafa',
+            paper_bgcolor: '#fafafa',
+            showlegend: true,
+            legend: { x: 1, y: 1, xanchor: 'right' }
+        };
+
+        Plotly.newPlot(div, [traceX, traceY], layout, { responsive: true, displayModeBar: true });
+
+    } else if (dim === 3) {
+        // 3D scatter plot superpuesto
+        const traceX = {
+            x: pointsX.map(p => p[0]),
+            y: pointsX.map(p => p[1]),
+            z: pointsX.map(p => p[2] || 0),
+            mode: 'markers',
+            type: 'scatter3d',
+            marker: {
+                size: 5,
+                symbol: 'circle',
+                color: '#3498db',
+                opacity: 0.7
+            },
+            name: 'X'
+        };
+
+        const traceY = {
+            x: pointsY.map(p => p[0]),
+            y: pointsY.map(p => p[1]),
+            z: pointsY.map(p => p[2] || 0),
+            mode: 'markers',
+            type: 'scatter3d',
+            marker: {
+                size: 5,
+                symbol: 'diamond',
+                color: '#e74c3c',
+                opacity: 0.7
+            },
+            name: 'Y'
+        };
+
+        const layout = {
+            title: title ? { text: title, font: { size: 16 } } : undefined,
+            margin: { l: 0, r: 0, t: title ? 50 : 0, b: 0 },
+            scene: {
+                xaxis: { title: 'x₁', showgrid: true },
+                yaxis: { title: 'x₂', showgrid: true },
+                zaxis: { title: 'x₃', showgrid: true },
+                camera: {
+                    eye: { x: 1.5, y: 1.5, z: 1.5 }
+                }
+            },
+            hovermode: 'closest',
+            plot_bgcolor: '#fafafa',
+            paper_bgcolor: '#fafafa',
+            showlegend: true,
+            legend: { x: 1, y: 1, xanchor: 'right' }
+        };
+
+        Plotly.newPlot(div, [traceX, traceY], layout, { responsive: true, displayModeBar: true });
+    }
+}
+
 function drawDiagram(canvasId, dgm, globalRange) {
     const canvas = document.getElementById(canvasId);
     if (!canvas) return;
@@ -1520,6 +1627,7 @@ function openPointCloudModal(method) {
     setTimeout(() => {
         drawPointCloud('modalPlotX', methodData.X, 'Espacio X');
         drawPointCloud('modalPlotY', methodData.Y, 'Espacio Y');
+        drawOverlaidPointClouds('modalPlotOverlay', methodData.X, methodData.Y, 'X e Y superpuestos');
     }, 50);
 
     // Cerrar con ESC
