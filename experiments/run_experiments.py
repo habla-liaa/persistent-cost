@@ -16,10 +16,10 @@ import fire
 from generate_spaces import EXPERIMENTS
 
 # Importar los pipelines desde persistent_cost
-from persistent_cost.cone import cone_pipeline
+from persistent_cost.cone import cone_pipeline as cone_ripser_pipeline
 from persistent_cost.cone_pairs import cone_pipeline as cone_pairs_pipeline
 from persistent_cost.cone_htr import cone_pipeline_htr
-from persistent_cost.cone_gd import cone_pipeline as cone_gd_pipeline
+from persistent_cost.cone_gd import cone_pipeline as cone_gudhi_pipeline
 from persistent_cost.cylinder import cylinder_dgm, cylinder_pipeline
 from persistent_cost.utils.utils import compute_lipschitz_constant, sort_diagram
 
@@ -197,8 +197,8 @@ def run_single_experiment(experiment_name, n, dim=2, threshold=3.0, maxdim=2, co
 
     # Ejecutar cone (método 1)
     if run_cone:
-        results['cone'] = execute_cone_algorithm(
-            'cone', cone_pipeline, dX, dY, f, X, Y, maxdim, cone_eps, tol, verbose
+        results['cone_ripser'] = execute_cone_algorithm(
+            'cone_ripser', cone_ripser_pipeline, dX, dY, f, X, Y, maxdim, cone_eps, tol, verbose
         )
 
     # Ejecutar cone_pairs (método 2)
@@ -215,8 +215,8 @@ def run_single_experiment(experiment_name, n, dim=2, threshold=3.0, maxdim=2, co
 
     # Ejecutar cone_gd (método con Gudhi)
     if run_cone_gd:
-        results['cone_gd'] = execute_cone_algorithm(
-            'cone_gd', cone_gd_pipeline, dX, dY, f, X, Y, maxdim, cone_eps, tol, verbose
+        results['cone_gudhi'] = execute_cone_algorithm(
+            'cone_gudhi', cone_gudhi_pipeline, dX, dY, f, X, Y, maxdim, cone_eps, tol, verbose
         )
 
     # Ejecutar cylinder
@@ -287,7 +287,7 @@ def main(
     maxdim: int = 2,
     seed: int = 42,
     cone_eps: float = 0.0,
-    tol: Union[float, tuple] = (1e-11, 1e-2),  # accepts float or range
+    tol: Union[float, tuple] = (1e-5, 1e-1),  # accepts float or range
     experiments: tuple = None,
     cone: bool = True,
     cone_pairs: bool = True,
