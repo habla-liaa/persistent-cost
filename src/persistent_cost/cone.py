@@ -1,7 +1,6 @@
 from IPython import embed
 import numpy as np
 from scipy.spatial.distance import pdist, squareform
-import torch
 from ripser import ripser
 from persistent_cost.utils.utils import conematrix, sort_diagram
 
@@ -51,8 +50,71 @@ def remove_empty_dims(bars):
             break
     return bars
 
-
 def kercoker_bars(dgm, dgmX, dgmY, tol=1e-11):
+    """
+    Find cokernel and kernel bars in the persistence diagram.
+    TODO: optimize
+    """
+    maxdim = len(dgm) - 1
+
+    coker_dgm = [[] for _ in range(maxdim + 1)]
+    ker_dgm = [[] for _ in range(maxdim + 1)]
+    missing = [[] for _ in range(maxdim + 1)]
+
+    # assert dgm[0][-1][1] == np.inf, "Expected infinite bar in dimension 0 of cone diagram."
+    # dgm[0] = dgm[0][:-1]  # remove the infinite bar in dim 0
+
+    for dim in range(maxdim + 1):  # dimension cone diagram
+        for i, r in enumerate(dgm[dim]):
+            newbar = False
+            b, d = r
+            # coker
+            # b_c = b_y_i
+            # d_c = d_y_i
+            if len(dgmY) > dim:
+                m = findclose(b, dgmY[dim][:, 0], tol) & findclose(
+                    d, dgmY[dim][:, 1], tol)
+
+                if sum(m):
+                    # if sum(m) > 1:
+                    # print("Encontre:", sum(m))
+                    coker_dgm[dim].append((b, d))
+                    newbar = True
+
+            # b_c = b_y_i
+            # d_c = b_x_j
+            if len(dgmY) > dim and len(dgmX) > dim:
+                if any(findclose(b, dgmY[dim][:, 0], tol)) and any(findclose(d, dgmX[dim][:, 0], tol)):
+                    coker_dgm[dim].append((b, d))
+                    newbar = True
+
+            # ker
+            if dim > 0:
+                # b_c = b_x_i (dim-1)
+                # d_c = d_x_i (dim-1)
+                m = findclose(
+                    b, dgmX[dim - 1][:, 0], tol) & findclose(d, dgmX[dim - 1][:, 1], tol)
+                if sum(m):
+                    ker_dgm[dim - 1].append((b, d))
+                    newbar = True
+
+                # b_c = d_y_i (dim-1)
+                # d_c = d_x_j (dim-1)
+                if len(dgmY) > dim - 1 and len(dgmX) > dim - 1:
+                    if any(findclose(b, dgmY[dim - 1][:, 1], tol)) and any(findclose(d, dgmX[dim - 1][:, 1], tol)):
+                        ker_dgm[dim - 1].append((b, d))
+                        newbar = True
+
+            if not newbar and d != np.inf:
+                # cone_bars.append((k, i, 'sobra', k,  'null', (b, d)))
+                missing[dim].append(('null', (b, d)))
+
+    coker_dgm = sort_diagram(remove_empty_dims(coker_dgm))
+    ker_dgm = sort_diagram(remove_empty_dims(ker_dgm))
+    return coker_dgm, ker_dgm, missing
+
+
+def kercoker_bars_(dgm, dgmX, dgmY, tol=1e-11):
     """
     Find cokernel and kernel bars in the persistence diagram.
     TODO: optimize

@@ -182,7 +182,7 @@ def run_single_experiment(experiment_name, n, dim=2, threshold=3.0, maxdim=2, co
     dX = pdist(X)
     dY = pdist(Y)
 
-    dY = dY / L
+    dY = dY / L/2
 
     results = {
         'experiment_name': experiment_name,

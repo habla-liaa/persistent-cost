@@ -5,6 +5,7 @@ const appState = {
     currentMethod: 'cone',
     currentTolerance: null,  // Tolerancia seleccionada para ker/coker/missing
     dataSource: null,  // 'github' o 'local'
+    localFolderPath: null,  // Path de la carpeta local usada
     githubAbortController: null  // Para cancelar carga de GitHub
 };
 
@@ -19,6 +20,7 @@ function saveStateToLocalStorage() {
             loadedResults: appState.loadedResults,
             currentMethod: appState.currentMethod,
             dataSource: appState.dataSource,
+            localFolderPath: appState.localFolderPath,
             selectedExperiment: document.getElementById('experimentSelect')?.value,
             selectedN: document.getElementById('nSelect')?.value,
             selectedEps: document.getElementById('epsSelect')?.value
@@ -45,7 +47,8 @@ function loadStateFromLocalStorage() {
             appState.loadedResults = state.loadedResults;
             appState.currentMethod = state.currentMethod || 'cone';
             appState.dataSource = state.dataSource || 'github';
-            console.log('[STORAGE] Estado cargado - Método:', appState.currentMethod, 'Source:', appState.dataSource);
+            appState.localFolderPath = state.localFolderPath || null;
+            console.log('[STORAGE] Estado cargado - Método:', appState.currentMethod, 'Source:', appState.dataSource, 'LocalPath:', appState.localFolderPath);
 
             updateDataSourceIndicator();
             populateSelectors();
@@ -95,7 +98,8 @@ function updateDataSourceIndicator() {
     const count = appState.loadedResults.length;
 
     if (appState.dataSource === 'local') {
-        indicator.innerHTML = `<span class="source-badge source-local">Local<span class="source-count">(${count} archivos)</span></span>`;
+        const folderName = appState.localFolderPath ? `<br><span style="font-size: 0.8em; opacity: 0.8;">${appState.localFolderPath}</span>` : '';
+        indicator.innerHTML = `<span class="source-badge source-local">Local<span class="source-count">(${count} archivos)</span>${folderName}</span>`;
     } else if (appState.dataSource === 'github') {
         indicator.innerHTML = `<span class="source-badge source-github">GitHub<span class="source-count">(${count} archivos)</span></span>`;
     } else {
@@ -113,13 +117,25 @@ function showCacheIndicator() {
     }
 }
 
-function clearCache() {
-    if (confirm('¿Estás seguro de que quieres limpiar los datos guardados? Esto recargará los datos desde GitHub.')) {
+function reloadData() {
+    // Recargar datos desde la fuente actual
+    const currentSource = appState.dataSource;
+    
+    if (currentSource === 'local') {
+        // Para local, abrir el selector de archivos
+        const folderInfo = appState.localFolderPath ? `\n\nÚltima carpeta usada: ${appState.localFolderPath}` : '';
+        alert(`Por seguridad del navegador, debe seleccionar la carpeta nuevamente.${folderInfo}`);
+        document.getElementById('folderInput').click();
+    } else {
+        // Para GitHub, limpiar estado y recargar
         try {
             localStorage.removeItem('persistentCostViewerState');
-            location.reload();
+            appState.loadedResults = [];
+            appState.currentResult = null;
+            appState.dataSource = null;
+            loadResultsFromGitHub();
         } catch (e) {
-            console.warn('No se pudo limpiar el caché:', e);
+            console.warn('Error recargando datos:', e);
         }
     }
 }
@@ -132,7 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const showPersistenceToggle = document.getElementById('showPersistenceMetrics');
 
     folderInput.addEventListener('change', handleFolderSelect);
-    clearCacheBtn.addEventListener('click', clearCache);
+    clearCacheBtn.addEventListener('click', reloadData);
 
     const experimentSelect = document.getElementById('experimentSelect');
     const nSelect = document.getElementById('nSelect');
@@ -499,6 +515,15 @@ function handleFolderSelect(event) {
 
     const allFiles = Array.from(event.target.files);
     console.log('[LOCAL] Total archivos en carpeta:', allFiles.length);
+    
+    // Extraer el path de la carpeta del primer archivo
+    if (allFiles.length > 0 && allFiles[0].webkitRelativePath) {
+        const relativePath = allFiles[0].webkitRelativePath;
+        const folderPath = relativePath.split('/').slice(0, -1).join('/');
+        appState.localFolderPath = folderPath || relativePath.split('/')[0];
+        console.log('[LOCAL] Path de carpeta:', appState.localFolderPath);
+    }
+    
     const files = allFiles.filter(f => f.name.endsWith('.json'));
 
     console.log('[LOCAL] Archivos JSON encontrados:', files.length, files.map(f => f.name));
