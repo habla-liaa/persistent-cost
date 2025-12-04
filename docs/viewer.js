@@ -13,92 +13,6 @@ const appState = {
 const DIMENSION_COLORS = ['#e74c3c', '#3498db', '#2ecc71', '#e67e22', '#9b59b6'];
 const DIM_LABELS = ['H₀', 'H₁', 'H₂', 'H₃', 'H₄'];
 
-// Funciones para localStorage
-function saveStateToLocalStorage() {
-    try {
-        const state = {
-            loadedResults: appState.loadedResults,
-            currentMethod: appState.currentMethod,
-            dataSource: appState.dataSource,
-            localFolderPath: appState.localFolderPath,
-            selectedExperiment: document.getElementById('experimentSelect')?.value,
-            selectedN: document.getElementById('nSelect')?.value,
-            selectedEps: document.getElementById('epsSelect')?.value,
-            selectedLmod: document.getElementById('lmodSelect')?.value
-        };
-        localStorage.setItem('persistentCostViewerState', JSON.stringify(state));
-    } catch (e) {
-        console.warn('No se pudo guardar el estado:', e);
-    }
-}
-
-function loadStateFromLocalStorage() {
-    console.log('[STORAGE] Intentando cargar estado desde localStorage...');
-    try {
-        const saved = localStorage.getItem('persistentCostViewerState');
-        if (!saved) {
-            console.log('[STORAGE] No hay estado guardado');
-            return false;
-        }
-
-        const state = JSON.parse(saved);
-        console.log('[STORAGE] Estado encontrado - dataSource:', state.dataSource, 'resultados:', state.loadedResults?.length);
-
-        if (state.loadedResults && state.loadedResults.length > 0) {
-            appState.loadedResults = state.loadedResults;
-            appState.currentMethod = state.currentMethod || 'cone';
-            appState.dataSource = state.dataSource || 'github';
-            appState.localFolderPath = state.localFolderPath || null;
-            console.log('[STORAGE] Estado cargado - Método:', appState.currentMethod, 'Source:', appState.dataSource, 'LocalPath:', appState.localFolderPath);
-
-            updateDataSourceIndicator();
-            populateSelectors();
-            document.getElementById('resultsSelector').style.display = 'block';
-
-            // Restaurar selecciones
-            if (state.selectedExperiment) {
-                console.log('[STORAGE] Restaurando selección - Exp:', state.selectedExperiment, 'N:', state.selectedN, 'Eps:', state.selectedEps, 'L_mod:', state.selectedLmod);
-                document.getElementById('experimentSelect').value = state.selectedExperiment;
-                updateNSelect();
-
-                if (state.selectedN) {
-                    document.getElementById('nSelect').value = state.selectedN;
-                    updateEpsSelect();
-
-                    if (state.selectedEps !== undefined) {
-                        setTimeout(() => {
-                            const epsSelect = document.getElementById('epsSelect');
-                            epsSelect.value = state.selectedEps;
-                            updateLmodSelect();
-                            
-                            if (state.selectedLmod !== undefined) {
-                                setTimeout(() => {
-                                    const lmodSelect = document.getElementById('lmodSelect');
-                                    lmodSelect.value = state.selectedLmod;
-                                    displaySelectedResult();
-                                }, 50);
-                            }
-                        }, 100);
-                    }
-                }
-            } else {
-                // Si no hay selección guardada, seleccionar el primer experimento
-                console.log('[STORAGE] No hay selección guardada, seleccionando primer experimento');
-                const experiments = [...new Set(appState.loadedResults.map(r => r.experiment_name))].sort();
-                if (experiments.length > 0) {
-                    document.getElementById('experimentSelect').value = experiments[0];
-                    updateNSelect();
-                }
-            }
-
-            return true;
-        }
-    } catch (e) {
-        console.warn('[STORAGE] Error cargando estado:', e);
-    }
-    return false;
-}
-
 function updateDataSourceIndicator() {
     console.log('[UI] updateDataSourceIndicator - source:', appState.dataSource, 'count:', appState.loadedResults.length);
     const indicator = document.getElementById('dataSourceIndicator');
@@ -133,16 +47,11 @@ function reloadData() {
 
 function loadFromGitHub() {
     // Forzar carga desde GitHub
-    try {
-        localStorage.removeItem('persistentCostViewerState');
-        appState.loadedResults = [];
-        appState.currentResult = null;
-        appState.dataSource = null;
-        appState.localFolderPath = null;
-        loadResultsFromGitHub();
-    } catch (e) {
-        console.warn('Error cargando desde GitHub:', e);
-    }
+    appState.loadedResults = [];
+    appState.currentResult = null;
+    appState.dataSource = null;
+    appState.localFolderPath = null;
+    loadResultsFromGitHub();
 }
 
 // Inicialización
@@ -175,15 +84,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const toleranceSelect = document.getElementById('toleranceSelect');
     toleranceSelect.addEventListener('change', handleToleranceChange);
 
-    // Intentar cargar estado guardado
-    console.log('[INIT] Intentando cargar estado desde localStorage...');
-    const wasRestored = loadStateFromLocalStorage();
-    if (wasRestored) {
-        console.log('[INIT] Estado restaurado desde localStorage');
-    } else {
-        console.log('[INIT] No hay estado guardado, cargando desde GitHub...');
-        loadResultsFromGitHub();
-    }
+    // Cargar desde GitHub al iniciar
+    console.log('[INIT] Cargando desde GitHub...');
+    loadResultsFromGitHub();
 
     // Agregar listener para navegación con teclado
     document.addEventListener('keydown', handleKeyboardNavigation);
@@ -247,7 +150,6 @@ async function loadResultsFromGitHub() {
             updateDataSourceIndicator();
             populateSelectors();
             document.getElementById('resultsSelector').style.display = 'block';
-            saveStateToLocalStorage();
 
             // Mostrar el primer resultado automáticamente
             const firstExperiment = appState.loadedResults[0].experiment_name;
@@ -283,6 +185,10 @@ async function loadJSONFromURL(url, filename = '', signal = null) {
         if (data.eps === undefined && filename) {
             const epsMatch = filename.match(/_eps([\d.]+)/);
             data.eps = epsMatch ? parseFloat(epsMatch[1]) : 0;
+        }
+        // Extraer L_mod del nombre del archivo si no está en el JSON
+        if (data.L_mod === undefined && filename) {
+            data.L_mod = filename.includes('_Lmod');
         }
         return data;
     } catch (error) {
@@ -322,8 +228,6 @@ function handleToleranceChange() {
     
     // Actualizar las listas de barras y estadísticas para ker, coker y missing
     updateDictDiagramsForTolerance();
-    
-    saveStateToLocalStorage();
 }
 
 // Actualizar los diagramas tipo dict con la tolerancia seleccionada
@@ -489,9 +393,6 @@ function switchToMethod(method) {
 
     // Actualizar barra de estado
     updateStatusBar();
-
-    // Guardar estado
-    saveStateToLocalStorage();
 }
 
 function updateStatusBar() {
@@ -573,7 +474,8 @@ function loadFiles(files) {
                 const missingType = md.missing ? (Array.isArray(md.missing) ? 'list' : 'dict') : 'N/A';
                 return `${m}(ker:${kerType}, coker:${cokerType}, missing:${missingType})`;
             });
-            console.log(`[LOCAL] [${idx + 1}] ${r.experiment_name} | n=${r.n} | eps=${r.eps} | métodos: ${methodDetails.join(', ')}`);
+            const lmodStr = r.L_mod ? 'L_mod=true' : 'L_mod=false';
+            console.log(`[LOCAL] [${idx + 1}] ${r.experiment_name} | n=${r.n} | eps=${r.eps} | ${lmodStr} | métodos: ${methodDetails.join(', ')}`);
         });
         console.log('[LOCAL] === Fin lista de experimentos ===');
         
@@ -585,7 +487,11 @@ function loadFiles(files) {
             updateDataSourceIndicator();
             populateSelectors();
             document.getElementById('resultsSelector').style.display = 'block';
-            saveStateToLocalStorage();
+            
+            // Mostrar el primer resultado automáticamente
+            const firstExperiment = appState.loadedResults[0].experiment_name;
+            document.getElementById('experimentSelect').value = firstExperiment;
+            updateNSelect();
         } else {
             showError('No se pudieron cargar los archivos JSON');
         }
@@ -602,6 +508,10 @@ function loadJSONFile(file) {
                 if (data.eps === undefined) {
                     const epsMatch = file.name.match(/_eps([\d.]+)/);
                     data.eps = epsMatch ? parseFloat(epsMatch[1]) : 0;
+                }
+                // Extraer L_mod del nombre del archivo si no está en el JSON
+                if (data.L_mod === undefined) {
+                    data.L_mod = file.name.includes('_Lmod');
                 }
                 resolve(data);
             } catch (error) {
@@ -667,9 +577,6 @@ function updateNSelect() {
         nSelect.value = nValues[0];
         updateEpsSelect();
     }
-
-    // Guardar estado
-    saveStateToLocalStorage();
 }
 
 function updateEpsSelect() {
@@ -684,11 +591,16 @@ function updateEpsSelect() {
     if (!selectedExp || !selectedN) {
         epsSelect.innerHTML = '<option value="">Seleccionar ε...</option>';
         epsSelect.disabled = true;
+        epsSelect.style.display = 'none';
         const lmodSelect = document.getElementById('lmodSelect');
         lmodSelect.innerHTML = '<option value="">Seleccionar L_mod...</option>';
         lmodSelect.disabled = true;
+        lmodSelect.style.display = 'none';
         return;
     }
+
+    // Mostrar el selector de eps
+    epsSelect.style.display = 'block';
 
     // Filtrar resultados por experimento y n
     const matchingResults = appState.loadedResults.filter(
@@ -719,9 +631,6 @@ function updateEpsSelect() {
         epsSelect.value = epsValues[0];
         updateLmodSelect();
     }
-
-    // Guardar estado
-    saveStateToLocalStorage();
 }
 
 function updateLmodSelect() {
@@ -738,8 +647,12 @@ function updateLmodSelect() {
     if (!selectedExp || !selectedN || isNaN(selectedEps)) {
         lmodSelect.innerHTML = '<option value="">Seleccionar L_mod...</option>';
         lmodSelect.disabled = true;
+        lmodSelect.style.display = 'none';
         return;
     }
+
+    // Mostrar el selector de L_mod
+    lmodSelect.style.display = 'block';
 
     // Filtrar resultados por experimento, n y eps
     const matchingResults = appState.loadedResults.filter(
@@ -747,8 +660,8 @@ function updateLmodSelect() {
     );
     console.log('[UI] Resultados que coinciden:', matchingResults.length);
 
-    // Extraer valores de L_mod (default es false)
-    const lmodValues = [...new Set(matchingResults.map(r => r.L_mod ?? false))].sort((a, b) => a - b);
+    // Extraer valores de L_mod (normalizar: truthy = true, falsy = false)
+    const lmodValues = [...new Set(matchingResults.map(r => !!r.L_mod))].sort((a, b) => a - b);
     console.log('[UI] Valores de L_mod encontrados:', lmodValues);
 
     // Actualizar selector de L_mod
@@ -770,9 +683,6 @@ function updateLmodSelect() {
         lmodSelect.value = lmodValues[0];
         displaySelectedResult();
     }
-
-    // Guardar estado
-    saveStateToLocalStorage();
 }
 
 function displaySelectedResult() {
@@ -784,8 +694,8 @@ function displaySelectedResult() {
     const selectedExp = experimentSelect.value;
     const selectedN = parseInt(nSelect.value);
     const selectedEps = parseFloat(epsSelect.value);
-    const selectedLmod = lmodSelect.value === 'true';
-    console.log('[UI] Buscando resultado - Exp:', selectedExp, 'N:', selectedN, 'Eps:', selectedEps, 'L_mod:', selectedLmod);
+    const selectedLmod = lmodSelect.value === 'true';  // "true" -> true, "false" -> false
+    console.log('[UI] Buscando resultado - Exp:', selectedExp, 'N:', selectedN, 'Eps:', selectedEps, 'L_mod:', selectedLmod, '(raw:', lmodSelect.value, ')');
 
     if (!selectedExp || !selectedN || isNaN(selectedEps)) {
         console.log('[UI] displaySelectedResult: Parámetros incompletos, saliendo');
@@ -797,7 +707,9 @@ function displaySelectedResult() {
         const matchExp = r.experiment_name === selectedExp;
         const matchN = r.n === selectedN;
         const matchEps = (r.eps ?? 0) === selectedEps;
-        const matchLmod = (r.L_mod ?? false) === selectedLmod;
+        // L_mod puede ser undefined, null, 0, 1, true o false - normalizar a boolean con !!
+        const resultLmod = !!r.L_mod;  // truthy = true, falsy = false
+        const matchLmod = resultLmod === selectedLmod;
         return matchExp && matchN && matchEps && matchLmod;
     });
 
@@ -805,7 +717,6 @@ function displaySelectedResult() {
         console.log('[UI] Resultado encontrado:', result.experiment_name, 'n=' + result.n, 'eps=' + result.eps);
         appState.currentResult = result;
         renderResult(result);
-        saveStateToLocalStorage();
     } else {
         console.log('[UI] ERROR: No se encontró resultado para los parámetros dados');
         console.log('[UI] Buscando en', appState.loadedResults.length, 'resultados disponibles');
@@ -873,9 +784,6 @@ function renderResult(result) {
 
     // Actualizar barra de estado
     updateStatusBar();
-
-    // Guardar estado
-    saveStateToLocalStorage();
 }
 
 function generateMethodTabs(result) {
