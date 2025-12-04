@@ -3,7 +3,7 @@
     "experiment_name": "inclusion_punto",
     "n": 20,
     "dim": 2,
-    "lipschitz_constant": 1.0,
+    "lipschitz_constant": 2.0,
     "X_shape": [
       1,
       2
@@ -14,6 +14,7 @@
     ],
     "seed": 42,
     "cone_eps": 0.001,
+    "L_mod": 1,
     "cone_ripser": {
       "X": [
         [
@@ -2916,7 +2917,7 @@
     "experiment_name": "inclusion_punto",
     "n": 50,
     "dim": 2,
-    "lipschitz_constant": 1.0,
+    "lipschitz_constant": 2.0,
     "X_shape": [
       1,
       2
@@ -2927,6 +2928,7 @@
     ],
     "seed": 42,
     "cone_eps": 0.001,
+    "L_mod": 1,
     "cone_ripser": {
       "X": [
         [
@@ -10377,7 +10379,7 @@
     "experiment_name": "producto",
     "n": 20,
     "dim": 2,
-    "lipschitz_constant": 1.0,
+    "lipschitz_constant": 2.0,
     "X_shape": [
       20,
       2
@@ -10388,6 +10390,7 @@
     ],
     "seed": 42,
     "cone_eps": 0.001,
+    "L_mod": 1,
     "cone_ripser": {
       "X": [
         [
@@ -16945,7 +16948,7 @@
     "experiment_name": "producto",
     "n": 50,
     "dim": 2,
-    "lipschitz_constant": 1.0,
+    "lipschitz_constant": 2.0,
     "X_shape": [
       50,
       2
@@ -16956,6 +16959,7 @@
     ],
     "seed": 42,
     "cone_eps": 0.001,
+    "L_mod": 1,
     "cone_ripser": {
       "X": [
         [
@@ -35720,6 +35724,7 @@
     ],
     "seed": 42,
     "cone_eps": 0.001,
+    "L_mod": 1,
     "cone_ripser": {
       "X": [
         [
@@ -39384,6 +39389,7 @@
     ],
     "seed": 42,
     "cone_eps": 0.001,
+    "L_mod": 1,
     "cone_ripser": {
       "X": [
         [
@@ -48617,7 +48623,7 @@
     "experiment_name": "toro_proyecta",
     "n": 20,
     "dim": 2,
-    "lipschitz_constant": 0.9999992528837333,
+    "lipschitz_constant": 1.9999985057674665,
     "X_shape": [
       20,
       3
@@ -48628,6 +48634,7 @@
     ],
     "seed": 42,
     "cone_eps": 0.001,
+    "L_mod": 1,
     "cone_ripser": {
       "X": [
         [
@@ -55113,7 +55120,7 @@
     "experiment_name": "toro_proyecta",
     "n": 50,
     "dim": 2,
-    "lipschitz_constant": 0.999999997301788,
+    "lipschitz_constant": 1.999999994603576,
     "X_shape": [
       50,
       3
@@ -55124,6 +55131,7 @@
     ],
     "seed": 42,
     "cone_eps": 0.001,
+    "L_mod": 1,
     "cone_ripser": {
       "X": [
         [
@@ -71452,7 +71460,7 @@
     "experiment_name": "circulo_en_toro",
     "n": 20,
     "dim": 2,
-    "lipschitz_constant": 1.0,
+    "lipschitz_constant": 2.0,
     "X_shape": [
       10,
       3
@@ -71463,6 +71471,7 @@
     ],
     "seed": 42,
     "cone_eps": 0.001,
+    "L_mod": 1,
     "cone_ripser": {
       "X": [
         [
@@ -76708,7 +76717,7 @@
     "experiment_name": "circulo_en_toro",
     "n": 50,
     "dim": 2,
-    "lipschitz_constant": 1.0,
+    "lipschitz_constant": 2.0,
     "X_shape": [
       10,
       3
@@ -76719,6 +76728,7 @@
     ],
     "seed": 42,
     "cone_eps": 0.001,
+    "L_mod": 1,
     "cone_ripser": {
       "X": [
         [
@@ -86733,7 +86743,7 @@
     "experiment_name": "muestreo_random",
     "n": 20,
     "dim": 2,
-    "lipschitz_constant": 1.0,
+    "lipschitz_constant": 2.0,
     "X_shape": [
       10,
       2
@@ -86744,6 +86754,7 @@
     ],
     "seed": 42,
     "cone_eps": 0.001,
+    "L_mod": 1,
     "cone_ripser": {
       "X": [
         [
@@ -91521,7 +91532,7 @@
     "experiment_name": "muestreo_random",
     "n": 50,
     "dim": 2,
-    "lipschitz_constant": 1.0,
+    "lipschitz_constant": 2.0,
     "X_shape": [
       25,
       2
@@ -91532,6 +91543,7 @@
     ],
     "seed": 42,
     "cone_eps": 0.001,
+    "L_mod": 1,
     "cone_ripser": {
       "X": [
         [

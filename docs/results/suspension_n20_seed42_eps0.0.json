@@ -13,6 +13,7 @@
   ],
   "seed": 42,
   "cone_eps": 0.0,
+  "L_mod": 0,
   "cone_ripser": {
     "X": [
       [

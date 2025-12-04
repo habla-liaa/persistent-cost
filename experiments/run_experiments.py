@@ -132,7 +132,7 @@ def execute_cone_algorithm(algorithm_name, pipeline_func, dX, dY, f, X, Y, maxdi
     return result_dict
 
 
-def run_single_experiment(experiment_name, n, dim=2, threshold=3.0, maxdim=2, cone_eps=0.0, seed=42, tol=1e-11, verbose=True,
+def run_single_experiment(experiment_name, n, dim=2, threshold=3.0, maxdim=2, cone_eps=0.0, seed=42, tol=1e-11, verbose=True, L_mod=False,
                           run_cone=True, run_cone_pairs=True, run_cone_htr=True, run_cone_gd=True, run_cylinder=True):
     """
     Ejecuta un experimento individual con los métodos disponibles.
@@ -145,6 +145,7 @@ def run_single_experiment(experiment_name, n, dim=2, threshold=3.0, maxdim=2, co
         maxdim: dimensión homológica máxima
         seed: semilla para reproducibilidad
         verbose: mostrar información detallada
+        L_mod: si True, divide dY por 2 además de L (default: False)
         run_cone: ejecutar método cone (default: True)
         run_cone_pairs: ejecutar método cone_pairs (default: True)
         run_htr: ejecutar método cone_htr (default: True)
@@ -182,7 +183,10 @@ def run_single_experiment(experiment_name, n, dim=2, threshold=3.0, maxdim=2, co
     dX = pdist(X)
     dY = pdist(Y)
 
-    dY = dY / L/2
+    if L_mod:
+        L = L*2.0
+
+    dY = dY / L
 
     results = {
         'experiment_name': experiment_name,
@@ -193,6 +197,7 @@ def run_single_experiment(experiment_name, n, dim=2, threshold=3.0, maxdim=2, co
         'Y_shape': Y.shape,
         'seed': seed,
         'cone_eps': cone_eps,
+        'L_mod': L_mod,
     }
 
     # Ejecutar cone (método 1)
@@ -267,7 +272,8 @@ def save_results(results, output_dir='results'):
     n = results['n']
 
     # Nombre base del archivo
-    base_name = f"{experiment_name}_n{n}_seed{results.get('seed', '')}_eps{results.get('cone_eps', 0)}"
+    L_mod_flag = '_Lmod' if results.get('L_mod', False) else ''
+    base_name = f"{experiment_name}_n{n}_seed{results.get('seed', '')}_eps{results.get('cone_eps', 0)}{L_mod_flag}"
 
     # Guardar JSON (convertir Infinity a null para compatibilidad)
     json_path = output_path / f"{base_name}.json"
@@ -288,6 +294,7 @@ def main(
     seed: int = 42,
     cone_eps: float = 0.0,
     tol: Union[float, tuple] = (1e-10, 1e-1),  # accepts float or range
+    L_mod: bool = False,
     experiments: tuple = None,
     cone: bool = True,
     cone_pairs: bool = True,
@@ -304,6 +311,7 @@ def main(
         dim: Dimensión del espacio (default: 2)
         maxdim: Dimensión homológica máxima (default: 2)
         seed: Semilla para reproducibilidad (default: 42)
+        L_mod: Si True, divide dY por 2 además de L (default: False)
         experiments: Tupla con nombres de experimentos a ejecutar (default: None = todos)
         cone: Ejecutar método cone (default: True)
         cone_pairs: Ejecutar método cone_pairs (default: True)
@@ -356,8 +364,9 @@ def main(
     print(f"  - cone_gd: {cone_gd}")
     print(f"  - cylinder: {cylinder}")
     print(f"\nExperimentos a ejecutar: {list(experiments_to_run.keys())}")
-    print(f"Valores de n: {n_values}\n")
-    print(f"Valor de cone_eps: {cone_eps}\n")
+    print(f"Valores de n: {n_values}")
+    print(f"Valor de cone_eps: {cone_eps}")
+    print(f"L_mod: {L_mod}")
     print(f"Semilla: {seed}\n")
 
     # Ejecutar todos los experimentos
@@ -378,6 +387,7 @@ def main(
                 tol=tol,
                 seed=seed,
                 verbose=True,
+                L_mod=L_mod,
                 run_cone=cone,
                 run_cone_pairs=cone_pairs,
                 run_cone_htr=cone_htr,

@@ -23,7 +23,8 @@ function saveStateToLocalStorage() {
             localFolderPath: appState.localFolderPath,
             selectedExperiment: document.getElementById('experimentSelect')?.value,
             selectedN: document.getElementById('nSelect')?.value,
-            selectedEps: document.getElementById('epsSelect')?.value
+            selectedEps: document.getElementById('epsSelect')?.value,
+            selectedLmod: document.getElementById('lmodSelect')?.value
         };
         localStorage.setItem('persistentCostViewerState', JSON.stringify(state));
     } catch (e) {
@@ -56,7 +57,7 @@ function loadStateFromLocalStorage() {
 
             // Restaurar selecciones
             if (state.selectedExperiment) {
-                console.log('[STORAGE] Restaurando selección - Exp:', state.selectedExperiment, 'N:', state.selectedN, 'Eps:', state.selectedEps);
+                console.log('[STORAGE] Restaurando selección - Exp:', state.selectedExperiment, 'N:', state.selectedN, 'Eps:', state.selectedEps, 'L_mod:', state.selectedLmod);
                 document.getElementById('experimentSelect').value = state.selectedExperiment;
                 updateNSelect();
 
@@ -68,7 +69,15 @@ function loadStateFromLocalStorage() {
                         setTimeout(() => {
                             const epsSelect = document.getElementById('epsSelect');
                             epsSelect.value = state.selectedEps;
-                            displaySelectedResult();
+                            updateLmodSelect();
+                            
+                            if (state.selectedLmod !== undefined) {
+                                setTimeout(() => {
+                                    const lmodSelect = document.getElementById('lmodSelect');
+                                    lmodSelect.value = state.selectedLmod;
+                                    displaySelectedResult();
+                                }, 50);
+                            }
                         }, 100);
                     }
                 }
@@ -104,16 +113,6 @@ function updateDataSourceIndicator() {
         indicator.innerHTML = `<span class="source-badge source-github">GitHub<span class="source-count">(${count} archivos)</span></span>`;
     } else {
         indicator.innerHTML = `<span class="source-badge source-loading">Cargando...</span>`;
-    }
-}
-
-function showCacheIndicator() {
-    const indicator = document.getElementById('cacheIndicator');
-    if (indicator) {
-        indicator.style.display = 'inline-block';
-        setTimeout(() => {
-            indicator.style.display = 'none';
-        }, 3000);
     }
 }
 
@@ -162,10 +161,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const experimentSelect = document.getElementById('experimentSelect');
     const nSelect = document.getElementById('nSelect');
     const epsSelect = document.getElementById('epsSelect');
+    const lmodSelect = document.getElementById('lmodSelect');
 
     experimentSelect.addEventListener('change', updateNSelect);
     nSelect.addEventListener('change', updateEpsSelect);
-    epsSelect.addEventListener('change', displaySelectedResult);
+    epsSelect.addEventListener('change', updateLmodSelect);
+    lmodSelect.addEventListener('change', displaySelectedResult);
 
     // Listener para el toggle de persistencia
     showPersistenceToggle.addEventListener('change', togglePersistenceMetrics);
@@ -179,7 +180,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const wasRestored = loadStateFromLocalStorage();
     if (wasRestored) {
         console.log('[INIT] Estado restaurado desde localStorage');
-        showCacheIndicator();
     } else {
         console.log('[INIT] No hay estado guardado, cargando desde GitHub...');
         loadResultsFromGitHub();
@@ -635,6 +635,7 @@ function updateNSelect() {
     const experimentSelect = document.getElementById('experimentSelect');
     const nSelect = document.getElementById('nSelect');
     const epsSelect = document.getElementById('epsSelect');
+    const lmodSelect = document.getElementById('lmodSelect');
     const selectedExp = experimentSelect.value;
     console.log('[UI] Experimento seleccionado:', selectedExp);
 
@@ -642,6 +643,7 @@ function updateNSelect() {
         nSelect.innerHTML = '<option value="">Seleccionar n...</option>';
         nSelect.disabled = true;
         epsSelect.style.display = 'none';
+        lmodSelect.style.display = 'none';
         return;
     }
 
@@ -682,6 +684,9 @@ function updateEpsSelect() {
     if (!selectedExp || !selectedN) {
         epsSelect.innerHTML = '<option value="">Seleccionar ε...</option>';
         epsSelect.disabled = true;
+        const lmodSelect = document.getElementById('lmodSelect');
+        lmodSelect.innerHTML = '<option value="">Seleccionar L_mod...</option>';
+        lmodSelect.disabled = true;
         return;
     }
 
@@ -712,6 +717,57 @@ function updateEpsSelect() {
 
         // Seleccionar el primer valor automáticamente
         epsSelect.value = epsValues[0];
+        updateLmodSelect();
+    }
+
+    // Guardar estado
+    saveStateToLocalStorage();
+}
+
+function updateLmodSelect() {
+    console.log('[UI] updateLmodSelect llamado');
+    const experimentSelect = document.getElementById('experimentSelect');
+    const nSelect = document.getElementById('nSelect');
+    const epsSelect = document.getElementById('epsSelect');
+    const lmodSelect = document.getElementById('lmodSelect');
+    const selectedExp = experimentSelect.value;
+    const selectedN = parseInt(nSelect.value);
+    const selectedEps = parseFloat(epsSelect.value);
+    console.log('[UI] Experimento:', selectedExp, 'N:', selectedN, 'Eps:', selectedEps);
+
+    if (!selectedExp || !selectedN || isNaN(selectedEps)) {
+        lmodSelect.innerHTML = '<option value="">Seleccionar L_mod...</option>';
+        lmodSelect.disabled = true;
+        return;
+    }
+
+    // Filtrar resultados por experimento, n y eps
+    const matchingResults = appState.loadedResults.filter(
+        r => r.experiment_name === selectedExp && r.n === selectedN && (r.eps ?? 0) === selectedEps
+    );
+    console.log('[UI] Resultados que coinciden:', matchingResults.length);
+
+    // Extraer valores de L_mod (default es false)
+    const lmodValues = [...new Set(matchingResults.map(r => r.L_mod ?? false))].sort((a, b) => a - b);
+    console.log('[UI] Valores de L_mod encontrados:', lmodValues);
+
+    // Actualizar selector de L_mod
+    lmodSelect.disabled = false;
+    lmodSelect.innerHTML = '';
+
+    if (lmodValues.length === 0) {
+        lmodSelect.innerHTML = '<option value="">Sin resultados</option>';
+        lmodSelect.disabled = true;
+    } else {
+        lmodValues.forEach(lmod => {
+            const option = document.createElement('option');
+            option.value = lmod;
+            option.textContent = `L_mod = ${lmod}`;
+            lmodSelect.appendChild(option);
+        });
+
+        // Seleccionar el primer valor automáticamente
+        lmodSelect.value = lmodValues[0];
         displaySelectedResult();
     }
 
@@ -724,22 +780,25 @@ function displaySelectedResult() {
     const experimentSelect = document.getElementById('experimentSelect');
     const nSelect = document.getElementById('nSelect');
     const epsSelect = document.getElementById('epsSelect');
+    const lmodSelect = document.getElementById('lmodSelect');
     const selectedExp = experimentSelect.value;
     const selectedN = parseInt(nSelect.value);
     const selectedEps = parseFloat(epsSelect.value);
-    console.log('[UI] Buscando resultado - Exp:', selectedExp, 'N:', selectedN, 'Eps:', selectedEps);
+    const selectedLmod = lmodSelect.value === 'true';
+    console.log('[UI] Buscando resultado - Exp:', selectedExp, 'N:', selectedN, 'Eps:', selectedEps, 'L_mod:', selectedLmod);
 
     if (!selectedExp || !selectedN || isNaN(selectedEps)) {
         console.log('[UI] displaySelectedResult: Parámetros incompletos, saliendo');
         return;
     }
 
-    // Buscar resultado que coincida con experimento, n y eps
+    // Buscar resultado que coincida con experimento, n, eps y L_mod
     const result = appState.loadedResults.find(r => {
         const matchExp = r.experiment_name === selectedExp;
         const matchN = r.n === selectedN;
         const matchEps = (r.eps ?? 0) === selectedEps;
-        return matchExp && matchN && matchEps;
+        const matchLmod = (r.L_mod ?? false) === selectedLmod;
+        return matchExp && matchN && matchEps && matchLmod;
     });
 
     if (result) {
