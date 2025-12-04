@@ -128,15 +128,21 @@ function reloadData() {
         document.getElementById('folderInput').click();
     } else {
         // Para GitHub, limpiar estado y recargar
-        try {
-            localStorage.removeItem('persistentCostViewerState');
-            appState.loadedResults = [];
-            appState.currentResult = null;
-            appState.dataSource = null;
-            loadResultsFromGitHub();
-        } catch (e) {
-            console.warn('Error recargando datos:', e);
-        }
+        loadFromGitHub();
+    }
+}
+
+function loadFromGitHub() {
+    // Forzar carga desde GitHub
+    try {
+        localStorage.removeItem('persistentCostViewerState');
+        appState.loadedResults = [];
+        appState.currentResult = null;
+        appState.dataSource = null;
+        appState.localFolderPath = null;
+        loadResultsFromGitHub();
+    } catch (e) {
+        console.warn('Error cargando desde GitHub:', e);
     }
 }
 
@@ -149,6 +155,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     folderInput.addEventListener('change', handleFolderSelect);
     clearCacheBtn.addEventListener('click', reloadData);
+    
+    const loadGithubBtn = document.getElementById('loadGithubBtn');
+    loadGithubBtn.addEventListener('click', loadFromGitHub);
 
     const experimentSelect = document.getElementById('experimentSelect');
     const nSelect = document.getElementById('nSelect');

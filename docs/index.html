@@ -733,11 +733,14 @@
                     <div id="dataSourceIndicator" class="data-source-indicator">
                         <span class="source-badge source-loading">Cargando...</span>
                     </div>
-                    <div class="file-input-wrapper" style="margin-top: 10px;">
-                        <label for="folderInput" class="file-input-label">
-                            Cargar Carpeta Local
+                    <div class="file-input-wrapper" style="margin-top: 10px; display: flex; gap: 6px;">
+                        <label for="folderInput" class="file-input-label" style="flex: 1; margin-bottom: 0;">
+                            📁 Local
                         </label>
                         <input type="file" id="folderInput" webkitdirectory directory multiple style="display: none;">
+                        <button class="file-input-label" id="loadGithubBtn" style="flex: 1; margin-bottom: 0; border: none;">
+                            🌐 GitHub
+                        </button>
                     </div>
                     <button class="clear-cache-btn" id="clearCacheBtn" title="Recargar datos desde la fuente actual" style="margin-top: 8px;">
                         Recargar Datos

@@ -287,7 +287,7 @@ def main(
     maxdim: int = 2,
     seed: int = 42,
     cone_eps: float = 0.0,
-    tol: Union[float, tuple] = (1e-5, 1e-1),  # accepts float or range
+    tol: Union[float, tuple] = (1e-10, 1e-1),  # accepts float or range
     experiments: tuple = None,
     cone: bool = True,
     cone_pairs: bool = True,
