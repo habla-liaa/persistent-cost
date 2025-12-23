@@ -263,7 +263,7 @@ def conematrix_blocks(DX, DY, DY_fy, cone_eps=0.0, max_value=np.inf):
 
     return D
 
-def conematrix_(dX, dY, f, cone_eps=0.0, max_value=np.inf):
+def conematrix(dX, dY, f, cone_eps=0.0, max_value=np.inf):
 
     n = matrix_size_from_condensed(dX)
     m = matrix_size_from_condensed(dY)
@@ -283,7 +283,7 @@ def conematrix_(dX, dY, f, cone_eps=0.0, max_value=np.inf):
     D = conematrix_blocks(squareform(dX), squareform(dY), DY_fy, cone_eps, max_value)
     return D
 
-def conematrix(dX, dY, f, cone_eps=0.0, max_value=np.inf):
+def conematrix_(dX, dY, f, cone_eps=0.0, max_value=np.inf):
 
     n = matrix_size_from_condensed(dX)
     m = matrix_size_from_condensed(dY)
