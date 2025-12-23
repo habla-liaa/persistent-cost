@@ -78,7 +78,6 @@ def matrix_size_from_condensed(dX):
     n = len(dX)
     return int(0.5 * (np.sqrt(8 * n + 1) - 1) + 1)
 
-
 def compute_lipschitz_constant(X, Y, f):
     """
     Calcula la constante de Lipschitz antes de la normalización.
@@ -133,9 +132,6 @@ def compute_lipschitz_constant(X, Y, f):
 
 #     return float(np.max(dY_ff / dX))
 
-def matrix_size_from_condensed(dX):
-    n = len(dX)
-    return int(0.5 * (np.sqrt(8 * n + 1) - 1) + 1)
 
 
 def match_simplices(f, simplices_info_X, simplices_info_Y):
@@ -277,20 +273,27 @@ def conematrix(dX, dY, f, cone_eps=0.0, max_value=np.inf):
     DY_fy = np.ones((n, m), dtype=float) * max_value
 
     # dY_fy = d(f(x_i),y_j) para todo i,j
-    indices = np.indices((n, m))
-    i = indices[0].flatten()
-    j = indices[1].flatten()
-    f_i = f[i]
+    # indices = np.indices((n, m))
+    # i = indices[0].flatten()
+    # j = indices[1].flatten()
+    # f_i = f[i]
 
-    ijs = [(ii, jj) for ii, jj in zip(i, j) if jj in f_i]
-    i, j = zip(*ijs)
-    i = np.array(i, dtype=int)
-    j = np.array(j, dtype=int)
+    # ijs = [(ii, jj) for ii, jj in zip(i, j) if jj in f_i]
+    # i, j = zip(*ijs)
+    # i = np.array(i, dtype=int)
+    # j = np.array(j, dtype=int)
 
-    f_i = f[i]
+    # f_i = f[i]
+    # DY_fy[i, j] = squareform(dY)[f_i, j]
 
-    DY_fy[i, j] = squareform(dY)[f_i, j]
+    # dY_fy = d(f(x_i),y_j) para todo i,j
 
+    f_i  = [f[i] for i in range(n)]
+    for j in range(m):
+        if j in f_i:
+            for i in range(n):
+                DY_fy[i, j] = squareform(dY)[f[i], j]
+                
     # dX     DY_fy
     # DY_fy  dY
     D = conematrix_blocks(squareform(dX), squareform(dY), DY_fy, cone_eps, max_value)

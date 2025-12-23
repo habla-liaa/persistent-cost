@@ -5,8 +5,7 @@ Este paquete contiene herramientas para ejecutar experimentos comparativos
 de los métodos cone, cone2 y cylinder.
 """
 
-from .generate_spaces import (
-    EXPERIMENTS,
+from ..src.persistent_cost.utils.generate_spaces import (
     inclusion_punto,
     producto,
     suspension,

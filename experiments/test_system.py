@@ -15,39 +15,12 @@ import os
 
 from persistent_cost.utils.utils import compute_lipschitz_constant
 
-def test_imports():
-    """Verifica que todos los imports funcionen."""
-    print("Verificando imports...", end=" ")
-    try:
-        import numpy as np
-        import scipy
-        import matplotlib
-        from scipy.spatial.distance import pdist
-        import gudhi
-        
-        # Imports de persistent_cost
-        from persistent_cost.cone import cone_pipeline
-        from persistent_cost.cone2 import cone_pipeline as cone2_pipeline
-        from persistent_cost.cylinder import cylinder_pipeline
-        
-        
-        # Imports locales
-        from generate_spaces import EXPERIMENTS
-        from visualization import plot_persistence_diagrams, format_bars_for_output
-        from run_experiments import run_single_experiment
-        
-        print("✓ OK")
-        return True
-    except ImportError as e:
-        print(f"✗ FALLO: {e}")
-        return False
-
 
 def test_space_generation():
     """Verifica que la generación de espacios funcione."""
     print("Verificando generación de espacios...", end=" ")
     try:
-        from generate_spaces import producto
+        from persistent_cost.utils.generate_spaces import producto
         
         X, Y, f = producto(n=10, dim=2, seed=42)
         
@@ -66,7 +39,7 @@ def test_lipschitz():
     """Verifica el cálculo de Lipschitz."""
     print("Verificando cálculo de Lipschitz...", end=" ")
     try:
-        from generate_spaces import producto
+        from persistent_cost.utils.generate_spaces import producto
         from persistent_cost.utils.utils import compute_lipschitz_constant 
         
         X, Y, f = producto(n=10, dim=2, seed=42)
@@ -88,7 +61,7 @@ def test_cone():
     print("Verificando método cone...", end=" ")
     try:
         from persistent_cost.cone import cone_pipeline
-        from generate_spaces import producto
+        from persistent_cost.utils.generate_spaces import producto
         from scipy.spatial.distance import pdist
         
         X, Y, f = producto(n=10, dim=2, seed=42)
@@ -120,7 +93,7 @@ def test_cone2():
     print("Verificando método cone2...", end=" ")
     try:
         from persistent_cost.cone2 import cone_pipeline
-        from generate_spaces import producto
+        from persistent_cost.utils.generate_spaces import producto
         from scipy.spatial.distance import pdist
         
         X, Y, f = producto(n=10, dim=2, seed=42)
@@ -152,7 +125,7 @@ def test_cylinder():
     print("Verificando método cylinder...", end=" ")
     try:
         from persistent_cost.cylinder import cylinder_pipeline
-        from generate_spaces import producto
+        from persistent_cost.utils.generate_spaces import producto
         from scipy.spatial.distance import pdist
         
         X, Y, f = producto(n=10, dim=2, seed=42)

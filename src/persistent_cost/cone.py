@@ -6,8 +6,31 @@ from persistent_cost.utils.utils import conematrix, sort_diagram
 
 
 def findclose(x, A, tol=1e-5):
+    return (np.abs(x - A) < tol)
+
+
+def findclose_(x, A, tol=1e-5):
     # return ((x + tol) >= A) & ((x - tol) <= A)
-    return np.abs(x-A) < tol
+    # A is finite and not empty
+    
+    finite_mask = np.isfinite(A)
+    if finite_mask.all() and not np.isinf(x):
+        return (np.abs(x - A) < tol)
+    else:
+
+    
+    # finite
+    finite = np.abs(x-A[mask]) < tol
+
+    if finite.any():
+        return finite
+    
+    # if x is infinite and A has infinite
+    if np.isinf(x):
+        inf = np.isinf(A)
+        if inf.any():
+            return inf
+    return np.array([False]*len(A))
 
 
 def matrix_size_from_condensed(dX):

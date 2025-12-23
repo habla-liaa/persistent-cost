@@ -13,7 +13,6 @@ from scipy.spatial.distance import pdist
 import math
 import fire
 
-from generate_spaces import EXPERIMENTS
 
 # Importar los pipelines desde persistent_cost
 from persistent_cost.cone import cone_pipeline as cone_ripser_pipeline
@@ -22,7 +21,24 @@ from persistent_cost.cone_htr import cone_pipeline_htr
 from persistent_cost.cone_gd import cone_pipeline as cone_gudhi_pipeline
 from persistent_cost.cylinder import cylinder_dgm, cylinder_pipeline
 from persistent_cost.utils.utils import compute_lipschitz_constant, sort_diagram
+from persistent_cost.utils.generate_spaces import (
+    inclusion_punto,
+    producto,
+    suspension,
+    toro_proyecta,
+    circulo_en_toro,
+    muestreo_random,
+)
 
+# Diccionario con todos los experimentos
+EXPERIMENTS = {
+    'inclusion_punto': inclusion_punto,
+    'producto': producto,
+    'suspension': suspension,
+    'toro_proyecta': toro_proyecta,
+    'circulo_en_toro': circulo_en_toro,
+    'muestreo_random': muestreo_random,
+}
 
 class SafeJSONEncoder(json.JSONEncoder):
     """
@@ -184,7 +200,7 @@ def run_single_experiment(experiment_name, n, dim=2, threshold=3.0, maxdim=2, co
     dY = pdist(Y)
 
     if L_mod:
-        L = L*2.0
+        L = L*2
 
     dY = dY / L
 
