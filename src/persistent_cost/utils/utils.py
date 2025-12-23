@@ -263,6 +263,25 @@ def conematrix_blocks(DX, DY, DY_fy, cone_eps=0.0, max_value=np.inf):
 
     return D
 
+def conematrix_(dX, dY, f, cone_eps=0.0, max_value=np.inf):
+
+    n = matrix_size_from_condensed(dX)
+    m = matrix_size_from_condensed(dY)
+    f = np.array(f)
+
+    DY_fy = np.ones((n, m), dtype=float) * max_value
+
+
+    f_i  = [f[i] for i in range(n)]
+    for j in range(m):
+        if j in f_i:
+            for i in range(n):
+                DY_fy[i, j] = min([squareform(dX)[i, l] for l in range(n) if f[l] == j])
+                
+    # dX     DY_fy
+    # DY_fy  dY
+    D = conematrix_blocks(squareform(dX), squareform(dY), DY_fy, cone_eps, max_value)
+    return D
 
 def conematrix(dX, dY, f, cone_eps=0.0, max_value=np.inf):
 

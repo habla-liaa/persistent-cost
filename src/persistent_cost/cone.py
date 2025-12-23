@@ -5,34 +5,26 @@ from ripser import ripser
 from persistent_cost.utils.utils import conematrix, sort_diagram
 
 
-def findclose(x, A, tol=1e-5):
+def findclose_(x, A, tol=1e-5):
     return (np.abs(x - A) < tol)
 
 
-def findclose_(x, A, tol=1e-5):
+def findclose(x, A, tol=1e-5):
     # return ((x + tol) >= A) & ((x - tol) <= A)
     # A is finite and not empty
     
     finite_mask = np.isfinite(A)
     if finite_mask.all() and not np.isinf(x):
         return (np.abs(x - A) < tol)
+    elif np.isinf(x):
+        inf_mask = np.isinf(A)
+        if inf_mask.any():
+            return inf_mask
+        else:
+            return np.zeros_like(A, dtype=bool)
     else:
-
+        return (np.abs(x - A) < tol)
     
-    # finite
-    finite = np.abs(x-A[mask]) < tol
-
-    if finite.any():
-        return finite
-    
-    # if x is infinite and A has infinite
-    if np.isinf(x):
-        inf = np.isinf(A)
-        if inf.any():
-            return inf
-    return np.array([False]*len(A))
-
-
 def matrix_size_from_condensed(dX):
     n = len(dX)
     return int(0.5 * (np.sqrt(8 * n + 1) - 1) + 1)
